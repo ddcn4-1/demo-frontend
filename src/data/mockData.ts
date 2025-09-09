@@ -25,14 +25,17 @@ interface Performance {
     performance_id: number;
     title: string;
     venue: string;
+    venue_name?: string; // 추가 - 일부 컴포넌트에서 사용
     theme: string;
     poster_url: string;
     price: number;
+    base_price?: number; // 추가 - 일부 컴포넌트에서 base_price로 접근
     status: string;
     start_date: string;
     end_date: string;
     running_time: number;
     venue_address: string;
+    description?: string; // 추가 - 컴포넌트에서 사용
     schedules: Array<{
         schedule_id: number;
         show_datetime: string;
