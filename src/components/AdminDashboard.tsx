@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { SystemOverview } from './admin/SystemOverview';
 import { PerformanceManagement } from './admin/PerformanceManagement';
 import { UserManagement } from './admin/UserManagement';
@@ -70,7 +71,21 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
   };
 
   const availableTabs = getTabList();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(availableTabs.length > 0 ? availableTabs[0].value : 'overview');
+
+  // Read tab from URL params
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && availableTabs.some(t => t.value === tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams, availableTabs]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setSearchParams({ tab: value });
+  };
 
   // Debug logging
   console.log(`User role: ${user.role}`, 'Permissions:', permissions, 'Available tabs:', availableTabs);
@@ -90,7 +105,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)` }}>
               {availableTabs.map(tab => (
                 <TabsTrigger key={tab.value} value={tab.value}>
