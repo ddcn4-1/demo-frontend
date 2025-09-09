@@ -1,7 +1,7 @@
 
-  # Ticketing Service MVP
+  # Back-office Ticket Booking System
 
-  This is a code bundle for Ticketing Service MVP. The original project is available at https://www.figma.com/design/QH3vKLzWFbc7Pi5e6d3Uh6/Ticketing-Service-MVP.
+  This is a code bundle for Back-office Ticket Booking System. The original project is available at https://www.figma.com/design/8fnW6LnT1r7p1TUNKHWNM3/Back-office-Ticket-Booking-System.
 
   ## Running the code
 
