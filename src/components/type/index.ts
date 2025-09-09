@@ -17,7 +17,7 @@ export interface Venue {
     created_at: string;
 }
 
-interface Performance {
+export interface Performance {
     performance_id: number;
     title: string;
     venue: string;
