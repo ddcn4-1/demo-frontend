@@ -5,7 +5,7 @@ import {
     Seat,
     Venue,
     SystemMetrics,
-} from './mockData';
+} from '../type/index';
 
 // API Configuration
 const API_CONFIG = {
