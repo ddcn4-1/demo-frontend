@@ -284,6 +284,14 @@ export class MockServer {
       return this.handleAuthRequest(method, pathParts, data);
     }
 
+    // Public endpoints - no authentication required
+    if (pathParts[0] === 'performances' && method === 'GET') {
+      return this.handlePerformanceRequest(method, pathParts, data, params);
+    }
+    if (pathParts[0] === 'venues' && method === 'GET') {
+      return this.handleVenueRequest(method, pathParts, data, params);
+    }
+
     // Check authentication for protected endpoints
     const authHeader = apiRequest.headers?.Authorization;
     if (!authHeader || !this.state.validateToken(authHeader.replace('Bearer ', ''))) {
@@ -400,6 +408,7 @@ export class MockServer {
 
   // Performance request handlers
   private async handlePerformanceRequest(method: string, pathParts: string[], data: any, params: any): Promise<ApiResponse> {
+    // GET /performances - list all performances
     if (method === 'GET' && pathParts.length === 1) {
       const performances = this.state.getPerformances();
       return {
@@ -409,7 +418,18 @@ export class MockServer {
       };
     }
 
-    if (method === 'GET' && pathParts.length === 2) {
+    // GET /performances/search - search performances with query parameters
+    if (method === 'GET' && pathParts.length === 2 && pathParts[1] === 'search') {
+      const searchResults = this.searchPerformances(params);
+      return {
+        status: 200,
+        data: searchResults,
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    // GET /performances/:id - get specific performance
+    if (method === 'GET' && pathParts.length === 2 && !isNaN(parseInt(pathParts[1]))) {
       const performanceId = parseInt(pathParts[1]);
       const performance = this.state.getPerformanceById(performanceId);
       
@@ -434,6 +454,47 @@ export class MockServer {
       error: 'Not Found',
       timestamp: new Date().toISOString()
     };
+  }
+
+  // Search performances based on criteria
+  private searchPerformances(params: any): Performance[] {
+    const { name = '', venue = '', status = '' } = params || {};
+    let performances = this.state.getPerformances();
+
+    // Filter by performance name (case-insensitive)
+    if (name && name.trim() !== '') {
+      const searchName = name.toLowerCase().trim();
+      performances = performances.filter(perf => 
+        perf.title.toLowerCase().includes(searchName)
+      );
+    }
+
+    // Filter by venue name (case-insensitive)
+    if (venue && venue.trim() !== '') {
+      const searchVenue = venue.toLowerCase().trim();
+      performances = performances.filter(perf => 
+        perf.venue_name.toLowerCase().includes(searchVenue)
+      );
+    }
+
+    // Filter by status
+    if (status && status.trim() !== '' && status !== 'all') {
+      const searchStatus = status.toLowerCase().trim();
+      performances = performances.filter(perf => {
+        const perfStatus = perf.status.toLowerCase();
+        
+        // Handle special status filters
+        if (searchStatus === 'available') {
+          return perf.available_seats > 0;
+        } else if (searchStatus === 'soldout') {
+          return perf.available_seats === 0;
+        } else {
+          return perfStatus === searchStatus;
+        }
+      });
+    }
+
+    return performances;
   }
 
   // Booking request handlers
@@ -586,22 +647,18 @@ export const serverAPI = {
   },
 
   async getPerformances(): Promise<Performance[]> {
-    const token = localStorage.getItem('mockAuthToken');
     const response = await mockServer.request({
       method: 'GET',
-      endpoint: '/performances',
-      headers: { Authorization: `Bearer ${token}` }
+      endpoint: '/performances'
     });
 
     return response.status === 200 ? response.data || [] : [];
   },
 
   async getPerformanceById(id: number): Promise<Performance | null> {
-    const token = localStorage.getItem('mockAuthToken');
     const response = await mockServer.request({
       method: 'GET',
-      endpoint: `/performances/${id}`,
-      headers: { Authorization: `Bearer ${token}` }
+      endpoint: `/performances/${id}`
     });
 
     return response.status === 200 ? response.data : null;
@@ -664,11 +721,24 @@ export const serverAPI = {
   },
 
   async getVenues(): Promise<Venue[]> {
-    const token = localStorage.getItem('mockAuthToken');
     const response = await mockServer.request({
       method: 'GET',
-      endpoint: '/venues',
-      headers: { Authorization: `Bearer ${token}` }
+      endpoint: '/venues'
+    });
+
+    return response.status === 200 ? response.data || [] : [];
+  },
+
+  // Search performances with filters
+  async searchPerformances(searchParams: {
+    name?: string;
+    venue?: string;
+    status?: string;
+  }): Promise<Performance[]> {
+    const response = await mockServer.request({
+      method: 'GET',
+      endpoint: '/performances/search',
+      params: searchParams
     });
 
     return response.status === 200 ? response.data || [] : [];
