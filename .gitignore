@@ -1,5 +1,4 @@
 node_modules
 .vite
-.gitignore
 .env
 .env.development
