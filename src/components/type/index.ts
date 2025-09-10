@@ -20,7 +20,6 @@ export interface Venue {
 export interface Performance {
     performance_id: number;
     title: string;
-<<<<<<< HEAD
     description?: string;
     venue: string;
     venue_name?: string; // alias for venue
@@ -36,22 +35,12 @@ export interface Performance {
         | 'CANCELLED'
         | 'SCHEDULED'
         | 'COMPLETED';
-=======
-    venue: string;
-    theme: string;
-    poster_url: string;
-    price: number;
-    status: string;
->>>>>>> origin/main
     start_date: string;
     end_date: string;
     running_time: number;
     venue_address: string;
-<<<<<<< HEAD
     total_bookings?: number;
     revenue?: number;
-=======
->>>>>>> origin/main
     schedules: Array<{
         schedule_id: number;
         show_datetime: string;
@@ -61,7 +50,6 @@ export interface Performance {
     }>;
 }
 
-<<<<<<< HEAD
 export interface PerformanceResponse {
     performanceId: number;
     title: string;
@@ -100,8 +88,6 @@ export interface PerformanceSchedule {
     created_at: string;
 }
 
-=======
->>>>>>> origin/main
 export interface Seat {
     seat_id: number;
     venue_id: number;
