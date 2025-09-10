@@ -34,15 +34,16 @@ const production: ApiConfig = {
     BASE_URL: 'https://staging-api.yourticketservice.com',
     TIMEOUT: 10000,
     ENDPOINTS: {
-        AUTH: '/api/auth',
+        AUTH: '/auth',
         ADMIN_AUTH: '/admin/auth',
         USERS: '/admin/users',
-        PERFORMANCES: '/api/v1/performances',
-        BOOKINGS: '/api/v1/bookings',
+        PERFORMANCES: '/v1/performances',
+        BOOKINGS: '/api/bookings',
         VENUES: '/api/venues',
         SYSTEM: '/api/system',
     },
     MOCK_ENDPOINTS: [],
+
 };
 
 // 현재 환경 감지

@@ -9,6 +9,8 @@ import {
 } from '../type/index';
 import { API_CONFIG, shouldUseMock } from '../../config/api.config';
 import { serverAPI as mockAPI } from '../../data/mockServer';
+// Auth는 별도로 export
+export { authService } from '../service/authService';
 
 // HTTP Client with error handling
 class ApiClient {
@@ -242,39 +244,39 @@ export const serverAPI = {
         }
     },
 
-    // Auth endpoints (항상 실제 API 사용)
-    async login(identifier: string, password: string): Promise<User | null> {
-        try {
-            const response = await apiClient.post<{
-                user: User;
-                token: string;
-            }>(`${API_CONFIG.ENDPOINTS.AUTH}/login`, { identifier, password });
-
-            if (response.token) {
-                localStorage.setItem('authToken', response.token);
-                localStorage.setItem(
-                    'currentUser',
-                    JSON.stringify(response.user)
-                );
-                return response.user;
-            }
-            return null;
-        } catch (error) {
-            console.error('Login failed:', error);
-            return null;
-        }
-    },
-
-    async logout(): Promise<void> {
-        try {
-            await apiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/logout`);
-        } catch (error) {
-            console.error('Logout failed:', error);
-        } finally {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('currentUser');
-        }
-    },
+    // // Auth endpoints (항상 실제 API 사용)
+    // async login(identifier: string, password: string): Promise<User | null> {
+    //     try {
+    //         const response = await apiClient.post<{
+    //             user: User;
+    //             token: string;
+    //         }>(`${API_CONFIG.ENDPOINTS.AUTH}/login`, { identifier, password });
+    //
+    //         if (response.token) {
+    //             localStorage.setItem('authToken', response.token);
+    //             localStorage.setItem(
+    //                 'currentUser',
+    //                 JSON.stringify(response.user)
+    //             );
+    //             return response.user;
+    //         }
+    //         return null;
+    //     } catch (error) {
+    //         console.error('Login failed:', error);
+    //         return null;
+    //     }
+    // },
+    //
+    // async logout(): Promise<void> {
+    //     try {
+    //         await apiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/logout`);
+    //     } catch (error) {
+    //         console.error('Logout failed:', error);
+    //     } finally {
+    //         localStorage.removeItem('authToken');
+    //         localStorage.removeItem('currentUser');
+    //     }
+    // },
 
     // Other endpoints
     async getUsers(): Promise<User[]> {
