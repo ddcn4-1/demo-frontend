@@ -19,7 +19,8 @@ import {
     Filter,
     X,
 } from 'lucide-react';
-import { serverAPI, Performance } from '../data/mockServer';
+//import { serverAPI, Performance } from '../data/mockServer';
+import { serverAPI } from './service/apiService';
 
 interface PerformanceListProps {
     onSelectPerformance: (performance: Performance) => void;
@@ -66,25 +67,30 @@ export function PerformanceList({
 
             // Convert the Performance interface to the expected format for this component
             const formattedPerformances = performanceData.map((perf) => ({
-                ...perf,
-                theme: perf.category,
-                poster_url:
-                    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop',
-                start_date: perf.show_datetime.split('T')[0],
-                end_date: perf.show_datetime.split('T')[0],
-                running_time: perf.duration_minutes,
-                venue_address: 'Seoul, Korea',
-                schedules: [
-                    {
-                        schedule_id: perf.performance_id,
-                        show_datetime: perf.show_datetime,
-                        available_seats: perf.available_seats,
-                        total_seats: perf.total_seats,
-                        status: perf.available_seats > 0 ? 'OPEN' : 'SOLDOUT',
-                    },
-                ],
+                performance_id: perf.performanceId,
+                title: perf.title,
+                venue: perf.venue,
+                venue_name: perf.venue, // venue_name 추가
+                theme: perf.theme,
+                poster_url: perf.posterUrl,
+                price: perf.price,
+                base_price: perf.price, // base_price 추가
+                status: perf.status,
+                start_date: perf.startDate,
+                end_date: perf.endDate,
+                running_time: perf.runningTime,
+                venue_address: perf.venueAddress,
+                description: perf.description, // description이 없으므로 theme으로 대체
+                schedules: (perf.schedules || []).map((schedule, index) => ({
+                    schedule_id: schedule.scheduleId,
+                    show_datetime: schedule.showDatetime,
+                    available_seats: schedule.availableSeats,
+                    total_seats: schedule.totalSeats || 0, // null인 경우 0으로 처리
+                    status: schedule.status,
+                })),
             }));
             setPerformances(formattedPerformances);
+            console.log(formattedPerformances);
 
             if (searchParams) {
                 setCurrentSearchParams({
