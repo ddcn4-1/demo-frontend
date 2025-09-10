@@ -96,7 +96,6 @@ export const serverAPI = {
             return [];
         }
     },
-
     async searchPerformances(searchParams: {
         name?: string;
         venue?: string;
