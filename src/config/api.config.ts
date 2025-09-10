@@ -18,7 +18,7 @@ const development: ApiConfig = {
     ENDPOINTS: {
         AUTH: '/api/auth',
         USERS: '/api/users',
-        PERFORMANCES: '/api/v1/performances',
+        PERFORMANCES: '/v1/performances',
         BOOKINGS: '/api/bookings',
         VENUES: '/api/venues',
         SYSTEM: '/api/system',
