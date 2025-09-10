@@ -8,7 +8,7 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Plus, Edit, Trash2, Search, Shield, Users, UserCheck, AlertTriangle } from 'lucide-react';
-
+import { serverAPI } from '../service/apiService'
 interface User {
   user_id: number;
   email: string;
@@ -28,8 +28,8 @@ export function UserManagement() {
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [formData, setFormData] = useState({
@@ -42,133 +42,63 @@ export function UserManagement() {
   });
 
   useEffect(() => {
-    // Mock user data
-    setTimeout(() => {
-      setUsers([
-        {
-          user_id: 1,
-          email: 'admin@ticket.com',
-          username: 'admin',
-          name: 'System Administrator',
-          phone: '010-1234-5678',
-          role: 'ADMIN',
-          last_login: '2024-12-05T14:30:00',
-          created_at: '2024-01-01T00:00:00',
-          status: 'active',
-          total_bookings: 0,
-          total_spent: 0
-        },
-        {
-          user_id: 2,
-          email: 'user@ticket.com',
-          username: 'testuser',
-          name: 'Test User',
-          phone: '010-9876-5432',
-          role: 'USER',
-          last_login: '2024-12-05T16:45:00',
-          created_at: '2024-02-15T00:00:00',
-          status: 'active',
-          total_bookings: 3,
-          total_spent: 245000
-        },
-        {
-          user_id: 3,
-          email: 'john@ticket.com',
-          username: 'john',
-          name: 'John Doe',
-          phone: '010-1111-2222',
-          role: 'USER',
-          last_login: '2024-12-04T20:15:00',
-          created_at: '2024-03-10T00:00:00',
-          status: 'active',
-          total_bookings: 7,
-          total_spent: 520000
-        },
-        {
-          user_id: 4,
-          email: 'devops@ticket.com',
-          username: 'devops',
-          name: 'DevOps Engineer',
-          phone: '010-3333-4444',
-          role: 'DevOps',
-          last_login: '2024-12-05T18:20:00',
-          created_at: '2024-01-15T00:00:00',
-          status: 'active',
-          total_bookings: 0,
-          total_spent: 0
-        },
-        {
-          user_id: 5,
-          email: 'dev@ticket.com',
-          username: 'developer',
-          name: 'System Developer',
-          phone: '010-5555-6666',
-          role: 'Dev',
-          last_login: '2024-12-05T17:10:00',
-          created_at: '2024-02-01T00:00:00',
-          status: 'active',
-          total_bookings: 0,
-          total_spent: 0
-        },
-        {
-          user_id: 6,
-          email: 'jane@ticket.com',
-          username: 'jane_smith',
-          name: 'Jane Smith',
-          phone: '010-7777-8888',
-          role: 'USER',
-          last_login: '2024-11-28T12:00:00',
-          created_at: '2024-04-20T00:00:00',
-          status: 'inactive',
-          total_bookings: 1,
-          total_spent: 65000
-        },
-        {
-          user_id: 7,
-          email: 'suspended@ticket.com',
-          username: 'suspended_user',
-          name: 'Suspended User',
-          phone: '010-9999-0000',
-          role: 'USER',
-          last_login: '2024-10-15T09:30:00',
-          created_at: '2024-05-05T00:00:00',
-          status: 'suspended',
-          total_bookings: 0,
-          total_spent: 0
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const userData = await serverAPI.getUsers();
+
+        setUsers(userData);
+      } catch (error) {
+        console.error('사용자 데이터를 가져오는데 실패했습니다:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
   }, []);
 
   useEffect(() => {
-    let filtered = users;
 
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(user => 
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
+    const searchUsers = async (searchParams?: {
+      username?: string;
+      role?: string;
+      status?: string;
+    }) => {
+      setLoading(true);
 
-    // Role filter
-    if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
-    }
+      try {
+        const userData = await serverAPI.searchUsers({
+          username: searchParams?.username || '',
+          role:
+            searchParams?.role === 'all'
+              ? ''
+              : searchParams?.role || '',
+          status:
+            searchParams?.status === 'all'
+              ? ''
+              : searchParams?.status || '',
+        });
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(user => user.status === statusFilter);
-    }
+        setFilteredUsers(userData);
+        console.log(userData);
+      } catch (error) {
+        console.error('Failed to search users: ', error)
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    setFilteredUsers(filtered);
+    searchUsers({
+      username: searchTerm,
+      role: roleFilter,
+      status: statusFilter,
+    });
+
   }, [users, searchTerm, roleFilter, statusFilter]);
 
   const handleCreateUser = () => {
     const newUser: User = {
-      user_id: Date.now(),
       ...formData,
       created_at: new Date().toISOString(),
       status: 'active' as const,
@@ -184,7 +114,7 @@ export function UserManagement() {
   const handleUpdateUser = () => {
     if (!editingUser) return;
 
-    setUsers(prev => prev.map(user => 
+    setUsers(prev => prev.map(user =>
       user.user_id === editingUser.user_id
         ? { ...user, ...formData }
         : user
@@ -212,8 +142,8 @@ export function UserManagement() {
   };
 
   const handleStatusChange = (userId: number, newStatus: 'active' | 'inactive' | 'suspended') => {
-    setUsers(prev => prev.map(user => 
-      user.user_id === userId 
+    setUsers(prev => prev.map(user =>
+      user.user_id === userId
         ? { ...user, status: newStatus }
         : user
     ));
@@ -560,15 +490,15 @@ export function UserManagement() {
                   <TableCell>{formatDate(user.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleEditUser(user)}
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteUser(user.user_id)}
                       >

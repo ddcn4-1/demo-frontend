@@ -91,7 +91,7 @@ export const serverAPI = {
         if (shouldUseMock('PERFORMANCES')) {
             return await mockAPI.getPerformances();
         }
-        
+
         try {
             return await apiClient.get<Performance[]>(
                 API_CONFIG.ENDPOINTS.PERFORMANCES
@@ -199,7 +199,7 @@ export const serverAPI = {
                 `${API_CONFIG.ENDPOINTS.AUTH}/login`,
                 { identifier, password }
             );
-            
+
             if (response.token) {
                 localStorage.setItem('authToken', response.token);
                 localStorage.setItem('currentUser', JSON.stringify(response.user));
@@ -233,6 +233,31 @@ export const serverAPI = {
             return await apiClient.get<User[]>(API_CONFIG.ENDPOINTS.USERS);
         } catch (error) {
             console.error('Failed to fetch users:', error);
+            return [];
+        }
+    },
+
+    async searchUsers(searchParams: {
+        username?: string;
+        role?: string;
+        status?: string;
+    }): Promise<User[]> {
+        try {
+            const queryString = new URLSearchParams(
+                Object.entries(searchParams).filter(
+                    ([_, value]) => value && value.trim() !== ''
+                )
+            ).toString();
+
+            const endpoint = queryString
+                ? `${API_CONFIG.ENDPOINTS.USERS}/search?${queryString}`
+                : API_CONFIG.ENDPOINTS.USERS;
+
+            console.log('search URL: ', endpoint);
+
+            return await apiClient.get<User[]>(endpoint);
+        } catch (error) {
+            console.error('Failed to search users: ', error);
             return [];
         }
     },

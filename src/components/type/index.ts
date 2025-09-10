@@ -4,6 +4,7 @@ export interface User {
     username: string;
     name: string;
     role: 'USER' | 'ADMIN' | 'DevOps' | 'Dev';
+    status: 'active' | 'inactive' | 'suspended';
     created_at: string;
     last_login?: string;
 }

@@ -18,7 +18,7 @@ const development: ApiConfig = {
     TIMEOUT: 10000,
     ENDPOINTS: {
         AUTH: '/api/auth',
-        USERS: '/api/users',
+        USERS: '/v1/admin/users',
         PERFORMANCES: '/api/v1/performances',
         BOOKINGS: '/api/bookings',
         VENUES: '/api/venues',
