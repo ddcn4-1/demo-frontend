@@ -1,81 +1,90 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardContent, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { ArrowLeft, Clock, Users } from 'lucide-react';
-import { Alert, AlertDescription } from './ui/alert';
-import { serverAPI, Seat, User } from '../data/mockServer';
-
-interface Performance {
-  performance_id: number;
-  title: string;
-  venue_name: string;
-  schedules: Array<{
-    schedule_id: number;
-    show_datetime: string;
-    available_seats: number;
-    total_seats: number;
-    status: string;
-  }>;
-}
-
-interface ExtendedSeat extends Seat {
-  price: number;
-  status: 'AVAILABLE' | 'LOCKED' | 'BOOKED';
-}
+import React, { useState, useEffect } from "react";
+import { Card, CardHeader, CardContent, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { ArrowLeft, Users } from "lucide-react";
+import {
+  performanceApi,
+  seatApi,
+  bookingApi,
+  PerformanceResponse,
+  ScheduleResponse,
+  SeatDto,
+  CreateBookingRequestDto,
+  UserInfo,
+} from "../libs/apis";
 
 interface SeatSelectionProps {
-  performance: Performance;
-  user: User;
+  performanceId: number;
+  user: UserInfo;
   onBack: () => void;
   onComplete: () => void;
 }
 
-export function SeatSelection({ performance, user, onBack, onComplete }: SeatSelectionProps) {
+export function SeatSelection({
+  performanceId,
+  user,
+  onBack,
+  onComplete,
+}: SeatSelectionProps) {
+  const [performance, setPerformance] = useState<PerformanceResponse | null>(
+    null
+  );
+  const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<number | null>(null);
-  const [seats, setSeats] = useState<ExtendedSeat[]>([]);
+  const [seats, setSeats] = useState<SeatDto[]>([]);
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
-  const [bookingStep, setBookingStep] = useState<'schedule' | 'seats' | 'confirm'>('schedule');
-  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes
+  const [bookingStep, setBookingStep] = useState<
+    "schedule" | "seats" | "confirm"
+  >("schedule");
 
+  // Load performance data and schedules on component mount
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (bookingStep === 'seats' && selectedSeats.length > 0) {
-      timer = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            // Time expired - release seats
-            setSelectedSeats([]);
-            setBookingStep('schedule');
-            return 300;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (performanceId) {
+      loadPerformanceData();
     }
-    return () => clearInterval(timer);
-  }, [bookingStep, selectedSeats.length]);
+  }, [performanceId]);
+
+  const loadPerformanceData = async () => {
+    if (!performanceId) {
+      console.error("Performance ID is required");
+      return;
+    }
+
+    console.log("Loading performance data for ID:", performanceId);
+    setLoading(true);
+    try {
+      // Load performance details
+      console.log("Fetching performance details...");
+      const performanceData = await performanceApi.getPerformanceById(
+        performanceId
+      );
+      setPerformance(performanceData);
+
+      // Load schedules for this performance
+      console.log("Fetching performance schedules...");
+      const schedulesData = await performanceApi.getPerformanceSchedules(
+        performanceId
+      );
+      console.log("Schedules data received:", schedulesData);
+      setSchedules(schedulesData.schedules);
+    } catch (error) {
+      console.error("Failed to load performance data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadSeats = async (scheduleId: number) => {
     setLoading(true);
     try {
-      // Use mock API to get seats for venue
-      const venueId = 1; // Default venue for demo
-      const seatData = await serverAPI.getSeatsByVenueId(venueId);
-      
-      // Convert Seat to ExtendedSeat and add status
-      const extendedSeats: ExtendedSeat[] = seatData.map(seat => ({
-        ...seat,
-        price: seat.seat_price,
-        status: seat.is_available ? 'AVAILABLE' : 'BOOKED' as 'AVAILABLE' | 'LOCKED' | 'BOOKED'
-      }));
-
-      setSeats(extendedSeats);
-      setBookingStep('seats');
+      // Get seat availability for the selected schedule
+      const seatResponse = await seatApi.getScheduleSeats(scheduleId);
+      setSeats(seatResponse.data.seats);
+      setBookingStep("seats");
     } catch (error) {
-      console.error('Failed to load seats:', error);
+      console.error("Failed to load seats:", error);
     } finally {
       setLoading(false);
     }
@@ -88,48 +97,91 @@ export function SeatSelection({ performance, user, onBack, onComplete }: SeatSel
   };
 
   const handleSeatClick = (seatId: number) => {
-    const seat = seats.find(s => s.seat_id === seatId);
-    if (!seat || seat.status !== 'AVAILABLE') return;
+    const seat = seats.find((s) => s.seatId === seatId);
+    if (!seat || seat.status !== "AVAILABLE") return;
 
     if (selectedSeats.includes(seatId)) {
-      setSelectedSeats(prev => prev.filter(id => id !== seatId));
+      setSelectedSeats((prev) => prev.filter((id) => id !== seatId));
     } else {
       if (selectedSeats.length < 4) {
-        setSelectedSeats(prev => [...prev, seatId]);
+        setSelectedSeats((prev) => [...prev, seatId]);
       }
     }
   };
 
   const getTotalPrice = () => {
     return selectedSeats.reduce((total, seatId) => {
-      const seat = seats.find(s => s.seat_id === seatId);
+      const seat = seats.find((s) => s.seatId === seatId);
       return total + (seat?.price || 0);
     }, 0);
   };
 
   const handleBooking = async () => {
+    if (!selectedSchedule) return;
+
     setLoading(true);
-    // Mock booking API call
-    setTimeout(() => {
-      alert(`Booking confirmed for ${selectedSeats.length} seats!`);
-      setLoading(false);
+    try {
+      const bookingRequest: CreateBookingRequestDto = {
+        scheduleId: selectedSchedule,
+        seatIds: selectedSeats,
+      };
+
+      const bookingResponse = await bookingApi.createBooking(bookingRequest);
+      alert(
+        `Booking confirmed! Booking number: ${bookingResponse.bookingNumber}`
+      );
       onComplete();
-    }, 2000);
+    } catch (error) {
+      console.error("Failed to create booking:", error);
+      alert("Booking failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const getSeatColor = (seat: SeatDto) => {
+    if (seat.status === "BOOKED") return "bg-gray-400 cursor-not-allowed";
+    if (selectedSeats.includes(seat.seatId))
+      return "bg-blue-500 hover:bg-blue-600";
+    return "bg-green-500 hover:bg-green-600 cursor-pointer";
   };
 
-  const getSeatColor = (seat: Seat) => {
-    if (seat.status === 'BOOKED') return 'bg-gray-400 cursor-not-allowed';
-    if (selectedSeats.includes(seat.seat_id)) return 'bg-blue-500 hover:bg-blue-600';
-    return 'bg-green-500 hover:bg-green-600 cursor-pointer';
-  };
+  // Early return if performanceId is invalid
+  if (!performanceId || isNaN(performanceId)) {
+    return (
+      <Card className="max-w-4xl mx-auto">
+        <CardContent className="p-8 text-center">
+          <p>Invalid performance ID</p>
+          <Button onClick={onBack} className="mt-4">
+            Go Back
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  if (bookingStep === 'schedule') {
+  if (loading && !performance) {
+    return (
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!performance) {
+    return (
+      <Card className="max-w-4xl mx-auto">
+        <CardContent className="p-8 text-center">
+          <p>Performance not found</p>
+          <Button onClick={onBack} className="mt-4">
+            Go Back
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (bookingStep === "schedule") {
     return (
       <Card className="max-w-4xl mx-auto">
         <CardHeader>
@@ -140,7 +192,7 @@ export function SeatSelection({ performance, user, onBack, onComplete }: SeatSel
             </Button>
             <div>
               <CardTitle>{performance.title}</CardTitle>
-              <p className="text-muted-foreground">{performance.venue_name}</p>
+              <p className="text-muted-foreground">{performance.venue}</p>
             </div>
           </div>
         </CardHeader>
@@ -148,31 +200,46 @@ export function SeatSelection({ performance, user, onBack, onComplete }: SeatSel
           <div className="space-y-4">
             <h3>Select a Show Time</h3>
             <div className="grid gap-4 md:grid-cols-2">
-              {performance.schedules.map((schedule) => (
-                <Card key={schedule.schedule_id} className="cursor-pointer hover:bg-accent" 
-                      onClick={() => schedule.status === 'OPEN' && handleScheduleSelect(schedule.schedule_id.toString())}>
+              {schedules.map((schedule) => (
+                <Card
+                  key={schedule.scheduleId}
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() =>
+                    schedule.status === "AVAILABLE" &&
+                    handleScheduleSelect(schedule.scheduleId.toString())
+                  }
+                >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">
-                          {new Date(schedule.show_datetime).toLocaleDateString('ko-KR')}
+                          {new Date(schedule.showDatetime).toLocaleDateString(
+                            "ko-KR"
+                          )}
                         </p>
-                        {/* Time display removed as requested
                         <p className="text-sm text-muted-foreground">
-                          {new Date(schedule.show_datetime).toLocaleTimeString('ko-KR', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {new Date(schedule.showDatetime).toLocaleTimeString(
+                            "ko-KR",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
                         </p>
-                        */}
                       </div>
                       <div className="text-right">
-                        <Badge variant={schedule.status === 'OPEN' ? 'default' : 'destructive'}>
+                        <Badge
+                          variant={
+                            schedule.status === "AVAILABLE"
+                              ? "default"
+                              : "destructive"
+                          }
+                        >
                           {schedule.status}
                         </Badge>
                         <p className="text-xs text-muted-foreground mt-1">
                           <Users className="w-3 h-3 inline mr-1" />
-                          {schedule.available_seats}/{schedule.total_seats}
+                          {schedule.availableSeats}/{schedule.totalSeats}
                         </p>
                       </div>
                     </div>
@@ -191,13 +258,13 @@ export function SeatSelection({ performance, user, onBack, onComplete }: SeatSel
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => setBookingStep('schedule')}>
+            <Button variant="ghost" onClick={() => setBookingStep("schedule")}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
             <div>
               <CardTitle>{performance.title}</CardTitle>
-              <p className="text-muted-foreground">{performance.venue_name}</p>
+              <p className="text-muted-foreground">{performance.venue}</p>
             </div>
           </div>
           {/* Time display removed as requested 
@@ -213,7 +280,7 @@ export function SeatSelection({ performance, user, onBack, onComplete }: SeatSel
           */}
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-6">
         {/* Timer alert removed as requested
         {selectedSeats.length > 0 && (
@@ -237,20 +304,24 @@ export function SeatSelection({ performance, user, onBack, onComplete }: SeatSel
           </div>
         ) : (
           <div className="space-y-4">
-            {['A', 'B', 'C', 'D'].map((row) => (
+            {["A", "B", "C", "D"].map((row) => (
               <div key={row} className="flex items-center justify-center gap-2">
                 <div className="w-8 text-center font-medium">{row}</div>
                 <div className="flex gap-1">
                   {seats
-                    .filter(seat => seat.seat_row === row)
+                    .filter((seat) => seat.seatRow === row)
                     .map((seat) => (
                       <div
-                        key={seat.seat_id}
-                        className={`w-8 h-8 rounded text-xs flex items-center justify-center text-white ${getSeatColor(seat)}`}
-                        onClick={() => handleSeatClick(seat.seat_id)}
-                        title={`${seat.seat_row}${seat.seat_number} - ${seat.seat_grade} - ${seat.price.toLocaleString()}원`}
+                        key={seat.seatId}
+                        className={`w-8 h-8 rounded text-xs flex items-center justify-center text-white ${getSeatColor(
+                          seat
+                        )}`}
+                        onClick={() => handleSeatClick(seat.seatId)}
+                        title={`${seat.seatRow}${seat.seatNumber} - ${
+                          seat.seatGrade || "Standard"
+                        } - ${seat.price.toLocaleString()}원`}
                       >
-                        {seat.seat_number}
+                        {seat.seatNumber}
                       </div>
                     ))}
                 </div>
@@ -279,18 +350,24 @@ export function SeatSelection({ performance, user, onBack, onComplete }: SeatSel
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Selected Seats ({selectedSeats.length})</p>
+                  <p className="font-medium">
+                    Selected Seats ({selectedSeats.length})
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedSeats.map(seatId => {
-                      const seat = seats.find(s => s.seat_id === seatId);
-                      return seat ? `${seat.seat_row}${seat.seat_number}` : '';
-                    }).join(', ')}
+                    {selectedSeats
+                      .map((seatId) => {
+                        const seat = seats.find((s) => s.seatId === seatId);
+                        return seat ? `${seat.seatRow}${seat.seatNumber}` : "";
+                      })
+                      .join(", ")}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium">Total: {getTotalPrice().toLocaleString()}원</p>
+                  <p className="font-medium">
+                    Total: {getTotalPrice().toLocaleString()}원
+                  </p>
                   <Button onClick={handleBooking} disabled={loading}>
-                    {loading ? 'Processing...' : 'Confirm Booking'}
+                    {loading ? "Processing..." : "Confirm Booking"}
                   </Button>
                 </div>
               </div>
