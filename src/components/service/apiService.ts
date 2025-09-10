@@ -7,7 +7,8 @@ import {
     Venue,
     SystemMetrics,
 } from '../type/index';
-import { API_CONFIG } from '../../config/api.config';
+import { API_CONFIG, shouldUseMock } from '../../config/api.config';
+import { serverAPI as mockAPI } from '../../data/mockServer';
 
 // HTTP Client with error handling
 class ApiClient {
@@ -118,10 +119,14 @@ const transformPerformanceData = (
 
 const apiClient = new ApiClient(API_CONFIG.BASE_URL, API_CONFIG.TIMEOUT);
 
-// API Service - matches mockServer interface exactly
+// Unified API Service - 자동으로 mock 또는 실제 API 선택
 export const serverAPI = {
     // Public endpoints (no auth required)
     async getPerformances(): Promise<Performance[]> {
+        if (shouldUseMock('PERFORMANCES')) {
+            return await mockAPI.getPerformances();
+        }
+
         try {
             return await apiClient.get<Performance[]>(
                 API_CONFIG.ENDPOINTS.PERFORMANCES
@@ -136,6 +141,10 @@ export const serverAPI = {
         venue?: string;
         status?: string;
     }): Promise<Performance[]> {
+        if (shouldUseMock('PERFORMANCES')) {
+            return await mockAPI.searchPerformances(searchParams);
+        }
+
         try {
             const queryString = new URLSearchParams(
                 Object.entries(searchParams).filter(
@@ -182,6 +191,146 @@ export const serverAPI = {
                 error
             );
             throw error;
+        }
+    },
+
+    // Booking endpoints
+    async getAllBookings(): Promise<Booking[]> {
+        if (shouldUseMock('BOOKINGS')) {
+            return await mockAPI.getAllBookings();
+        }
+
+        try {
+            return await apiClient.get<Booking[]>(
+                API_CONFIG.ENDPOINTS.BOOKINGS
+            );
+        } catch (error) {
+            console.error('Failed to fetch bookings:', error);
+            return [];
+        }
+    },
+
+    async getBookingsByUserId(userId: number): Promise<Booking[]> {
+        if (shouldUseMock('BOOKINGS')) {
+            return await mockAPI.getBookingsByUserId(userId);
+        }
+
+        try {
+            return await apiClient.get<Booking[]>(
+                `${API_CONFIG.ENDPOINTS.BOOKINGS}/user/${userId}`
+            );
+        } catch (error) {
+            console.error('Failed to fetch user bookings:', error);
+            return [];
+        }
+    },
+
+    async cancelBooking(bookingId: number, reason: string): Promise<boolean> {
+        if (shouldUseMock('BOOKINGS')) {
+            return await mockAPI.cancelBooking(bookingId, reason);
+        }
+
+        try {
+            await apiClient.post(
+                `${API_CONFIG.ENDPOINTS.BOOKINGS}/${bookingId}/cancel`,
+                { reason }
+            );
+            return true;
+        } catch (error) {
+            console.error('Failed to cancel booking:', error);
+            return false;
+        }
+    },
+
+    // Auth endpoints (항상 실제 API 사용)
+    async login(identifier: string, password: string): Promise<User | null> {
+        try {
+            const response = await apiClient.post<{
+                user: User;
+                token: string;
+            }>(`${API_CONFIG.ENDPOINTS.AUTH}/login`, { identifier, password });
+
+            if (response.token) {
+                localStorage.setItem('authToken', response.token);
+                localStorage.setItem(
+                    'currentUser',
+                    JSON.stringify(response.user)
+                );
+                return response.user;
+            }
+            return null;
+        } catch (error) {
+            console.error('Login failed:', error);
+            return null;
+        }
+    },
+
+    async logout(): Promise<void> {
+        try {
+            await apiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/logout`);
+        } catch (error) {
+            console.error('Logout failed:', error);
+        } finally {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+        }
+    },
+
+    // Other endpoints
+    async getUsers(): Promise<User[]> {
+        if (shouldUseMock('USERS')) {
+            return await mockAPI.getUsers();
+        }
+
+        try {
+            return await apiClient.get<User[]>(API_CONFIG.ENDPOINTS.USERS);
+        } catch (error) {
+            console.error('Failed to fetch users:', error);
+            return [];
+        }
+    },
+
+    async getVenues(): Promise<Venue[]> {
+        if (shouldUseMock('VENUES')) {
+            return await mockAPI.getVenues();
+        }
+
+        try {
+            return await apiClient.get<Venue[]>(API_CONFIG.ENDPOINTS.VENUES);
+        } catch (error) {
+            console.error('Failed to fetch venues:', error);
+            return [];
+        }
+    },
+
+    async getSeatsByVenueId(venueId: number): Promise<Seat[]> {
+        if (shouldUseMock('VENUES')) {
+            return await mockAPI.getSeatsByVenueId(venueId);
+        }
+
+        try {
+            return await apiClient.get<Seat[]>(
+                `${API_CONFIG.ENDPOINTS.VENUES}/${venueId}/seats`
+            );
+        } catch (error) {
+            console.error('Failed to fetch seats:', error);
+            return [];
+        }
+    },
+
+    async getSystemMetrics(): Promise<SystemMetrics> {
+        if (shouldUseMock('SYSTEM')) {
+            return await mockAPI.getSystemMetrics();
+        }
+
+        try {
+            return await apiClient.get<SystemMetrics>(
+                `${API_CONFIG.ENDPOINTS.SYSTEM}/metrics`
+            );
+        } catch (error) {
+            console.error('Failed to fetch system metrics:', error);
+            // fallback to mock data
+            return await mockAPI.getSystemMetrics();
         }
     },
 };

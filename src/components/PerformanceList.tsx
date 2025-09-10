@@ -19,7 +19,6 @@ import {
     Filter,
     X,
 } from 'lucide-react';
-
 import { serverAPI } from './service/apiService';
 
 interface PerformanceListProps {
