@@ -46,44 +46,55 @@ export function UserManagement() {
     fetchUsers();
   }, []);
 
+  const searchUsers = async (searchParams?: {
+    username?: string;
+    role?: string;
+    status?: string;
+  }) => {
+    setLoading(true);
+
+    try {
+      const userData = await serverAPI.searchUsers({
+        username: searchParams?.username || '',
+        role:
+          searchParams?.role === 'all'
+            ? ''
+            : searchParams?.role || '',
+        status:
+          searchParams?.status === 'all'
+            ? ''
+            : searchParams?.status || '',
+      });
+
+      setFilteredUsers(userData);
+      console.log(userData);
+    } catch (error) {
+      console.error('Failed to search users: ', error)
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    const delayDebounceTimer = setTimeout(() => {
+      searchUsers({
+        username: searchTerm,
+        role: roleFilter,
+        status: statusFilter,
+      });
 
-    const searchUsers = async (searchParams?: {
-      username?: string;
-      role?: string;
-      status?: string;
-    }) => {
-      setLoading(true);
+    }, 500);
 
-      try {
-        const userData = await serverAPI.searchUsers({
-          username: searchParams?.username || '',
-          role:
-            searchParams?.role === 'all'
-              ? ''
-              : searchParams?.role || '',
-          status:
-            searchParams?.status === 'all'
-              ? ''
-              : searchParams?.status || '',
-        });
+    return () => clearTimeout(delayDebounceTimer);
+  }, [searchTerm]);
 
-        setFilteredUsers(userData);
-        console.log(userData);
-      } catch (error) {
-        console.error('Failed to search users: ', error)
-      } finally {
-        setLoading(false);
-      }
-    };
-
+  useEffect(() => {
     searchUsers({
       username: searchTerm,
       role: roleFilter,
       status: statusFilter,
     });
-
-  }, [users, searchTerm, roleFilter, statusFilter]);
+  }, [users, roleFilter, statusFilter]);
 
   const handleCreateUser = async () => {
     try {
