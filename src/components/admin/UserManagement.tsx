@@ -11,6 +11,112 @@ import { Plus, Edit, Trash2, Search, Shield, Users, UserCheck, AlertTriangle } f
 import { serverAPI } from '../service/apiService'
 import { User } from '../type/index'
 
+const UserForm = ({
+  isEdit = false,
+  formData,
+  setFormData,
+  handleCreateUser,
+  handleUpdateUser,
+  setShowCreateDialog,
+  setEditingUser,
+  resetForm
+}: {
+  isEdit?: boolean;
+  formData: any;
+  setFormData: any;
+  handleCreateUser: () => void;
+  handleUpdateUser: () => void;
+  setShowCreateDialog: (show: boolean) => void;
+  setEditingUser: (user: any) => void;
+  resetForm: () => void;
+}) => (
+  <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, email: e.target.value }))}
+          placeholder="user@example.com"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="username">Username</Label>
+        <Input
+          id="username"
+          value={formData.username}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, username: e.target.value }))}
+          placeholder="username"
+        />
+      </div>
+    </div>
+
+    <div>
+      <Label htmlFor="name">Full Name</Label>
+      <Input
+        id="name"
+        value={formData.name}
+        onChange={(e) => setFormData((prev: any) => ({ ...prev, name: e.target.value }))}
+        placeholder="John Doe"
+      />
+    </div>
+
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor="phone">Phone</Label>
+        <Input
+          id="phone"
+          value={formData.phone}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, phone: e.target.value }))}
+          placeholder="010-1234-5678"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="role">Role</Label>
+        <Select value={formData.role} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, role: value }))}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="USER">User</SelectItem>
+            <SelectItem value="Dev">Developer</SelectItem>
+            <SelectItem value="DevOps">DevOps</SelectItem>
+            <SelectItem value="ADMIN">Admin</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+
+    <div>
+      <Label htmlFor="password">{isEdit ? 'New Password (leave blank to keep current)' : 'Password'}</Label>
+      <Input
+        id="password"
+        type="password"
+        value={formData.password}
+        onChange={(e) => setFormData((prev: any) => ({ ...prev, password: e.target.value }))}
+        placeholder={isEdit ? 'Leave blank to keep current password' : 'Enter password'}
+      />
+    </div>
+
+    <div className="flex justify-end gap-2 pt-4">
+      <Button variant="outline" onClick={() => {
+        setShowCreateDialog(false);
+        setEditingUser(null);
+        resetForm();
+      }}>
+        Cancel
+      </Button>
+      <Button onClick={isEdit ? handleUpdateUser : handleCreateUser}>
+        {isEdit ? 'Update' : 'Create'} User
+      </Button>
+    </div>
+  </div>
+);
+
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -203,95 +309,6 @@ export function UserManagement() {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ko-KR').format(price) + '원';
   };
-
-  const UserForm = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-            placeholder="user@example.com"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="username">Username</Label>
-          <Input
-            id="username"
-            value={formData.username}
-            onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-            placeholder="username"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="name">Full Name</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-          placeholder="John Doe"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="phone">Phone</Label>
-          <Input
-            id="phone"
-            value={formData.phone}
-            onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-            placeholder="010-1234-5678"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="role">Role</Label>
-          <Select value={formData.role} onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as any }))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="USER">User</SelectItem>
-              <SelectItem value="Dev">Developer</SelectItem>
-              <SelectItem value="DevOps">DevOps</SelectItem>
-              <SelectItem value="ADMIN">Admin</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="password">{isEdit ? 'New Password (leave blank to keep current)' : 'Password'}</Label>
-        <Input
-          id="password"
-          type="password"
-          value={formData.password}
-          onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-          placeholder={isEdit ? 'Leave blank to keep current password' : 'Enter password'}
-        />
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={() => {
-          setShowCreateDialog(false);
-          setEditingUser(null);
-          resetForm();
-        }}>
-          Cancel
-        </Button>
-        <Button onClick={isEdit ? handleUpdateUser : handleCreateUser}>
-          {isEdit ? 'Update' : 'Create'} User
-        </Button>
-      </div>
-    </div>
-  );
-
   if (loading) {
     return (
       <div className="space-y-4">
@@ -330,7 +347,15 @@ export function UserManagement() {
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>
             </DialogHeader>
-            <UserForm />
+            <UserForm
+              formData={formData}
+              setFormData={setFormData}
+              handleCreateUser={handleCreateUser}
+              handleUpdateUser={handleUpdateUser}
+              setShowCreateDialog={setShowCreateDialog}
+              setEditingUser={setEditingUser}
+              resetForm={resetForm}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -473,27 +498,9 @@ export function UserManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {/* Status dropdown commented out - now read-only. Uncomment to enable dropdown functionality */}
                     <Badge variant={getStatusColor(user.status)}>
                       {user.status}
                     </Badge>
-                    {/*
-                    <Select 
-                      value={user.status} 
-                      onValueChange={(value) => handleStatusChange(user.user_id, value as any)}
-                    >
-                      <SelectTrigger className="w-32">
-                        <Badge variant={getStatusColor(user.status)}>
-                          {user.status}
-                        </Badge>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="suspended">Suspended</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    */}
                   </TableCell>
                   <TableCell>
                     {user.last_login ? formatDate(user.last_login) : 'Never'}
@@ -537,7 +544,16 @@ export function UserManagement() {
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
           </DialogHeader>
-          <UserForm isEdit />
+          <UserForm
+            isEdit
+            formData={formData}
+            setFormData={setFormData}
+            handleCreateUser={handleCreateUser}
+            handleUpdateUser={handleUpdateUser}
+            setShowCreateDialog={setShowCreateDialog}
+            setEditingUser={setEditingUser}
+            resetForm={resetForm}
+          />
         </DialogContent>
       </Dialog>
     </div>
