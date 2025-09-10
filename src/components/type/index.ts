@@ -20,15 +20,27 @@ export interface Venue {
 export interface Performance {
     performance_id: number;
     title: string;
+    description?: string;
     venue: string;
+    venue_name?: string; // alias for venue
+    venue_id?: number;
     theme: string;
     poster_url: string;
     price: number;
-    status: string;
+    base_price?: number; // alias for price
+    status:
+        | 'UPCOMING'
+        | 'ONGOING'
+        | 'ENDED'
+        | 'CANCELLED'
+        | 'SCHEDULED'
+        | 'COMPLETED';
     start_date: string;
     end_date: string;
     running_time: number;
     venue_address: string;
+    total_bookings?: number;
+    revenue?: number;
     schedules: Array<{
         schedule_id: number;
         show_datetime: string;
@@ -36,6 +48,44 @@ export interface Performance {
         total_seats: number;
         status: string;
     }>;
+}
+
+export interface PerformanceResponse {
+    performanceId: number;
+    title: string;
+    venue: string;
+    theme: string;
+    posterUrl: string;
+    price: number;
+    status:
+        | 'UPCOMING'
+        | 'ONGOING'
+        | 'ENDED'
+        | 'CANCELLED'
+        | 'SCHEDULED'
+        | 'COMPLETED';
+    startDate: string;
+    endDate: string;
+    runningTime: number;
+    venueAddress: string;
+    description?: string;
+    schedules: Array<{
+        scheduleId: number;
+        showDatetime: string;
+        availableSeats: number;
+        totalSeats: number;
+        status: string;
+    }>;
+}
+
+export interface PerformanceSchedule {
+    schedule_id: number;
+    show_datetime: string;
+    total_seats: number;
+    available_seats: number;
+    base_price?: number;
+    status: 'SCHEDULED' | 'CANCELLED' | 'COMPLETED' | 'ONGOING';
+    created_at: string;
 }
 
 export interface Seat {

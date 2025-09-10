@@ -19,7 +19,7 @@ import {
     Filter,
     X,
 } from 'lucide-react';
-//import { serverAPI, Performance } from '../data/mockServer';
+
 import { serverAPI } from './service/apiService';
 
 interface PerformanceListProps {
@@ -70,11 +70,11 @@ export function PerformanceList({
                 performance_id: perf.performanceId,
                 title: perf.title,
                 venue: perf.venue,
-                venue_name: perf.venue, // venue_name 추가
+                venue_name: perf.venue,
                 theme: perf.theme,
                 poster_url: perf.posterUrl,
                 price: perf.price,
-                base_price: perf.price, // base_price 추가
+                base_price: perf.price,
                 status: perf.status,
                 start_date: perf.startDate,
                 end_date: perf.endDate,
