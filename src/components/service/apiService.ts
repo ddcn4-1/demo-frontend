@@ -262,6 +262,26 @@ export const serverAPI = {
         }
     },
 
+    async createUser(userData: {
+        email: string;
+        username: string;
+        name: string;
+        phone: string;
+        role: 'USER' | 'ADMIN' | 'DevOps' | 'Dev';
+        passwordHash: string;
+    }): Promise<User | undefined> {
+        try {
+            return await apiClient.post<User>(
+                API_CONFIG.ENDPOINTS.USERS,
+                userData
+            );
+        } catch (error) {
+            console.error('Failed to create user: ', error);
+            return undefined;
+        }
+    },
+
+
     async getVenues(): Promise<Venue[]> {
         if (shouldUseMock('VENUES')) {
             return await mockAPI.getVenues();

@@ -9,19 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Plus, Edit, Trash2, Search, Shield, Users, UserCheck, AlertTriangle } from 'lucide-react';
 import { serverAPI } from '../service/apiService'
-interface User {
-  user_id: number;
-  email: string;
-  username: string;
-  name: string;
-  phone?: string;
-  role: 'USER' | 'ADMIN' | 'DevOps' | 'Dev';
-  last_login?: string;
-  created_at: string;
-  status: 'active' | 'inactive' | 'suspended';
-  total_bookings: number;
-  total_spent: number;
-}
+import { User } from '../type/index'
 
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -97,18 +85,32 @@ export function UserManagement() {
 
   }, [users, searchTerm, roleFilter, statusFilter]);
 
-  const handleCreateUser = () => {
-    const newUser: User = {
-      ...formData,
-      created_at: new Date().toISOString(),
-      status: 'active' as const,
-      total_bookings: 0,
-      total_spent: 0
-    };
+  const handleCreateUser = async () => {
+    try {
+      setLoading(true);
 
-    setUsers(prev => [...prev, newUser]);
-    setShowCreateDialog(false);
-    resetForm();
+      const newUser = await serverAPI.createUser({
+        email: formData.email,
+        username: formData.username,
+        name: formData.name,
+        phone: formData.phone,
+        role: formData.role,
+        passwordHash: formData.password,
+      })
+
+      if (newUser !== undefined) {
+        setUsers(prev => [...prev, newUser]);
+        setShowCreateDialog(false);
+        resetForm();
+        console.log('사용자 생성 성공');
+      } else {
+        throw new Error('사용자 생성 실패');
+      }
+    } catch (error) {
+      console.error('사용자 생성 실패: ', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateUser = () => {
