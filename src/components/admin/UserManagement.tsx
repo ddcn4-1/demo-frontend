@@ -8,28 +8,122 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Plus, Edit, Trash2, Search, Shield, Users, UserCheck, AlertTriangle } from 'lucide-react';
+import { serverAPI } from '../service/apiService'
+import { User } from '../type/index'
 
-interface User {
-  user_id: number;
-  email: string;
-  username: string;
-  name: string;
-  phone?: string;
-  role: 'USER' | 'ADMIN' | 'DevOps' | 'Dev';
-  last_login?: string;
-  created_at: string;
-  status: 'active' | 'inactive' | 'suspended';
-  total_bookings: number;
-  total_spent: number;
-}
+const UserForm = ({
+  isEdit = false,
+  formData,
+  setFormData,
+  handleCreateUser,
+  handleUpdateUser,
+  setShowCreateDialog,
+  setEditingUser,
+  resetForm
+}: {
+  isEdit?: boolean;
+  formData: any;
+  setFormData: any;
+  handleCreateUser: () => void;
+  handleUpdateUser: () => void;
+  setShowCreateDialog: (show: boolean) => void;
+  setEditingUser: (user: any) => void;
+  resetForm: () => void;
+}) => (
+  <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, email: e.target.value }))}
+          placeholder="user@example.com"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="username">Username</Label>
+        <Input
+          id="username"
+          value={formData.username}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, username: e.target.value }))}
+          placeholder="username"
+        />
+      </div>
+    </div>
+
+    <div>
+      <Label htmlFor="name">Full Name</Label>
+      <Input
+        id="name"
+        value={formData.name}
+        onChange={(e) => setFormData((prev: any) => ({ ...prev, name: e.target.value }))}
+        placeholder="John Doe"
+      />
+    </div>
+
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor="phone">Phone</Label>
+        <Input
+          id="phone"
+          value={formData.phone}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, phone: e.target.value }))}
+          placeholder="010-1234-5678"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="role">Role</Label>
+        <Select value={formData.role} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, role: value }))}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="USER">User</SelectItem>
+            <SelectItem value="DEV">Developer</SelectItem>
+            <SelectItem value="DEVOPS">DevOps</SelectItem>
+            <SelectItem value="ADMIN">Admin</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+
+    <div>
+      <Label htmlFor="password">{isEdit ? 'New Password (leave blank to keep current)' : 'Password'}</Label>
+      <Input
+        id="password"
+        type="password"
+        value={formData.password}
+        onChange={(e) => setFormData((prev: any) => ({ ...prev, password: e.target.value }))}
+        placeholder={isEdit ? 'Leave blank to keep current password' : 'Enter password'}
+      />
+    </div>
+
+    <div className="flex justify-end gap-2 pt-4">
+      <Button variant="outline" onClick={() => {
+        setShowCreateDialog(false);
+        setEditingUser(null);
+        resetForm();
+      }}>
+        Cancel
+      </Button>
+      <Button onClick={isEdit ? handleUpdateUser : handleCreateUser}>
+        {isEdit ? 'Update' : 'Create'} User
+      </Button>
+    </div>
+  </div>
+);
 
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [formData, setFormData] = useState({
@@ -42,149 +136,104 @@ export function UserManagement() {
   });
 
   useEffect(() => {
-    // Mock user data
-    setTimeout(() => {
-      setUsers([
-        {
-          user_id: 1,
-          email: 'admin@ticket.com',
-          username: 'admin',
-          name: 'System Administrator',
-          phone: '010-1234-5678',
-          role: 'ADMIN',
-          last_login: '2024-12-05T14:30:00',
-          created_at: '2024-01-01T00:00:00',
-          status: 'active',
-          total_bookings: 0,
-          total_spent: 0
-        },
-        {
-          user_id: 2,
-          email: 'user@ticket.com',
-          username: 'testuser',
-          name: 'Test User',
-          phone: '010-9876-5432',
-          role: 'USER',
-          last_login: '2024-12-05T16:45:00',
-          created_at: '2024-02-15T00:00:00',
-          status: 'active',
-          total_bookings: 3,
-          total_spent: 245000
-        },
-        {
-          user_id: 3,
-          email: 'john@ticket.com',
-          username: 'john',
-          name: 'John Doe',
-          phone: '010-1111-2222',
-          role: 'USER',
-          last_login: '2024-12-04T20:15:00',
-          created_at: '2024-03-10T00:00:00',
-          status: 'active',
-          total_bookings: 7,
-          total_spent: 520000
-        },
-        {
-          user_id: 4,
-          email: 'devops@ticket.com',
-          username: 'devops',
-          name: 'DevOps Engineer',
-          phone: '010-3333-4444',
-          role: 'DevOps',
-          last_login: '2024-12-05T18:20:00',
-          created_at: '2024-01-15T00:00:00',
-          status: 'active',
-          total_bookings: 0,
-          total_spent: 0
-        },
-        {
-          user_id: 5,
-          email: 'dev@ticket.com',
-          username: 'developer',
-          name: 'System Developer',
-          phone: '010-5555-6666',
-          role: 'Dev',
-          last_login: '2024-12-05T17:10:00',
-          created_at: '2024-02-01T00:00:00',
-          status: 'active',
-          total_bookings: 0,
-          total_spent: 0
-        },
-        {
-          user_id: 6,
-          email: 'jane@ticket.com',
-          username: 'jane_smith',
-          name: 'Jane Smith',
-          phone: '010-7777-8888',
-          role: 'USER',
-          last_login: '2024-11-28T12:00:00',
-          created_at: '2024-04-20T00:00:00',
-          status: 'inactive',
-          total_bookings: 1,
-          total_spent: 65000
-        },
-        {
-          user_id: 7,
-          email: 'suspended@ticket.com',
-          username: 'suspended_user',
-          name: 'Suspended User',
-          phone: '010-9999-0000',
-          role: 'USER',
-          last_login: '2024-10-15T09:30:00',
-          created_at: '2024-05-05T00:00:00',
-          status: 'suspended',
-          total_bookings: 0,
-          total_spent: 0
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const userData = await serverAPI.getUsers();
 
-  useEffect(() => {
-    let filtered = users;
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(user => 
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Role filter
-    if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(user => user.status === statusFilter);
-    }
-
-    setFilteredUsers(filtered);
-  }, [users, searchTerm, roleFilter, statusFilter]);
-
-  const handleCreateUser = () => {
-    const newUser: User = {
-      user_id: Date.now(),
-      ...formData,
-      created_at: new Date().toISOString(),
-      status: 'active' as const,
-      total_bookings: 0,
-      total_spent: 0
+        setUsers(userData);
+      } catch (error) {
+        console.error('사용자 데이터를 가져오는데 실패했습니다:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setUsers(prev => [...prev, newUser]);
-    setShowCreateDialog(false);
-    resetForm();
+    fetchUsers();
+  }, []);
+
+  const searchUsers = async (searchParams?: {
+    username?: string;
+    role?: string;
+    status?: string;
+  }) => {
+    setLoading(true);
+
+    try {
+      const userData = await serverAPI.searchUsers({
+        username: searchParams?.username || '',
+        role:
+          searchParams?.role === 'all'
+            ? ''
+            : searchParams?.role || '',
+        status:
+          searchParams?.status === 'all'
+            ? ''
+            : searchParams?.status || '',
+      });
+
+      setFilteredUsers(userData);
+      console.log(userData);
+    } catch (error) {
+      console.error('Failed to search users: ', error)
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const delayDebounceTimer = setTimeout(() => {
+      searchUsers({
+        username: searchTerm,
+        role: roleFilter,
+        status: statusFilter,
+      });
+
+    }, 500);
+
+    return () => clearTimeout(delayDebounceTimer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    searchUsers({
+      username: searchTerm,
+      role: roleFilter,
+      status: statusFilter,
+    });
+  }, [users, roleFilter, statusFilter]);
+
+  const handleCreateUser = async () => {
+    try {
+      setLoading(true);
+
+      const newUser = await serverAPI.createUser({
+        email: formData.email,
+        username: formData.username,
+        name: formData.name,
+        phone: formData.phone,
+        role: formData.role,
+        password: formData.password,
+      })
+
+      if (newUser !== undefined) {
+        setUsers(prev => [...prev, newUser]);
+        setShowCreateDialog(false);
+        resetForm();
+        console.log('사용자 생성 성공');
+      } else {
+        throw new Error('사용자 생성 실패');
+      }
+    } catch (error) {
+      console.error('사용자 생성 실패: ', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateUser = () => {
     if (!editingUser) return;
 
-    setUsers(prev => prev.map(user => 
+    setUsers(prev => prev.map(user =>
       user.user_id === editingUser.user_id
         ? { ...user, ...formData }
         : user
@@ -193,9 +242,26 @@ export function UserManagement() {
     resetForm();
   };
 
-  const handleDeleteUser = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(prev => prev.filter(user => user.user_id !== id));
+  const handleDeleteUser = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const success = await serverAPI.deleteUser(id);
+
+      if (success) {
+        setUsers(prev => prev.filter(user => user.user_id !== id));
+        console.log('사용자가 삭제 성공');
+      } else {
+        throw new Error('사용자 삭제 실패');
+      }
+    } catch (error) {
+      console.error('사용자 삭제 실패: ', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -211,9 +277,9 @@ export function UserManagement() {
     });
   };
 
-  const handleStatusChange = (userId: number, newStatus: 'active' | 'inactive' | 'suspended') => {
-    setUsers(prev => prev.map(user => 
-      user.user_id === userId 
+  const handleStatusChange = (userId: number, newStatus: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED') => {
+    setUsers(prev => prev.map(user =>
+      user.user_id === userId
         ? { ...user, status: newStatus }
         : user
     ));
@@ -233,8 +299,8 @@ export function UserManagement() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'ADMIN': return 'destructive';
-      case 'DevOps': return 'default';
-      case 'Dev': return 'secondary';
+      case 'DEVOPS': return 'default';
+      case 'DEV': return 'secondary';
       case 'USER': return 'outline';
       default: return 'outline';
     }
@@ -242,9 +308,9 @@ export function UserManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'default';
-      case 'inactive': return 'secondary';
-      case 'suspended': return 'destructive';
+      case 'ACTIVE': return 'default';
+      case 'INACTIVE': return 'secondary';
+      case 'SUSPENDED': return 'destructive';
       default: return 'outline';
     }
   };
@@ -260,95 +326,6 @@ export function UserManagement() {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ko-KR').format(price) + '원';
   };
-
-  const UserForm = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-            placeholder="user@example.com"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="username">Username</Label>
-          <Input
-            id="username"
-            value={formData.username}
-            onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-            placeholder="username"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="name">Full Name</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-          placeholder="John Doe"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="phone">Phone</Label>
-          <Input
-            id="phone"
-            value={formData.phone}
-            onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-            placeholder="010-1234-5678"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="role">Role</Label>
-          <Select value={formData.role} onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as any }))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="USER">User</SelectItem>
-              <SelectItem value="Dev">Developer</SelectItem>
-              <SelectItem value="DevOps">DevOps</SelectItem>
-              <SelectItem value="ADMIN">Admin</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="password">{isEdit ? 'New Password (leave blank to keep current)' : 'Password'}</Label>
-        <Input
-          id="password"
-          type="password"
-          value={formData.password}
-          onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-          placeholder={isEdit ? 'Leave blank to keep current password' : 'Enter password'}
-        />
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={() => {
-          setShowCreateDialog(false);
-          setEditingUser(null);
-          resetForm();
-        }}>
-          Cancel
-        </Button>
-        <Button onClick={isEdit ? handleUpdateUser : handleCreateUser}>
-          {isEdit ? 'Update' : 'Create'} User
-        </Button>
-      </div>
-    </div>
-  );
-
   if (loading) {
     return (
       <div className="space-y-4">
@@ -387,7 +364,15 @@ export function UserManagement() {
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>
             </DialogHeader>
-            <UserForm />
+            <UserForm
+              formData={formData}
+              setFormData={setFormData}
+              handleCreateUser={handleCreateUser}
+              handleUpdateUser={handleUpdateUser}
+              setShowCreateDialog={setShowCreateDialog}
+              setEditingUser={setEditingUser}
+              resetForm={resetForm}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -413,7 +398,7 @@ export function UserManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Active Users</p>
                 <p className="text-xl font-medium">
-                  {users.filter(u => u.status === 'active').length}
+                  {users.filter(u => u.status === 'ACTIVE').length}
                 </p>
               </div>
             </div>
@@ -427,7 +412,7 @@ export function UserManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Admin/Staff</p>
                 <p className="text-xl font-medium">
-                  {users.filter(u => ['ADMIN', 'DevOps', 'Dev'].includes(u.role)).length}
+                  {users.filter(u => ['ADMIN', 'DEVOPS', 'DEV'].includes(u.role)).length}
                 </p>
               </div>
             </div>
@@ -441,7 +426,7 @@ export function UserManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Suspended</p>
                 <p className="text-xl font-medium">
-                  {users.filter(u => u.status === 'suspended').length}
+                  {users.filter(u => u.status === 'SUSPENDED').length}
                 </p>
               </div>
             </div>
@@ -470,8 +455,8 @@ export function UserManagement() {
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="USER">Users</SelectItem>
-                <SelectItem value="Dev">Developers</SelectItem>
-                <SelectItem value="DevOps">DevOps</SelectItem>
+                <SelectItem value="DEV">Developers</SelectItem>
+                <SelectItem value="DEVOPS">DevOps</SelectItem>
                 <SelectItem value="ADMIN">Admins</SelectItem>
               </SelectContent>
             </Select>
@@ -482,9 +467,9 @@ export function UserManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                <SelectItem value="SUSPENDED">Suspended</SelectItem>
               </SelectContent>
             </Select>
 
@@ -530,27 +515,9 @@ export function UserManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {/* Status dropdown commented out - now read-only. Uncomment to enable dropdown functionality */}
                     <Badge variant={getStatusColor(user.status)}>
                       {user.status}
                     </Badge>
-                    {/*
-                    <Select 
-                      value={user.status} 
-                      onValueChange={(value) => handleStatusChange(user.user_id, value as any)}
-                    >
-                      <SelectTrigger className="w-32">
-                        <Badge variant={getStatusColor(user.status)}>
-                          {user.status}
-                        </Badge>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="suspended">Suspended</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    */}
                   </TableCell>
                   <TableCell>
                     {user.last_login ? formatDate(user.last_login) : 'Never'}
@@ -560,17 +527,17 @@ export function UserManagement() {
                   <TableCell>{formatDate(user.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleEditUser(user)}
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteUser(user.user_id)}
+                        onClick={() => handleDeleteUser(user.userId)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -594,7 +561,16 @@ export function UserManagement() {
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
           </DialogHeader>
-          <UserForm isEdit />
+          <UserForm
+            isEdit
+            formData={formData}
+            setFormData={setFormData}
+            handleCreateUser={handleCreateUser}
+            handleUpdateUser={handleUpdateUser}
+            setShowCreateDialog={setShowCreateDialog}
+            setEditingUser={setEditingUser}
+            resetForm={resetForm}
+          />
         </DialogContent>
       </Dialog>
     </div>
