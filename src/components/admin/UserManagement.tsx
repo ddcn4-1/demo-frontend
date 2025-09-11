@@ -506,7 +506,7 @@ export function UserManagement() {
                     <div>
                       <div className="font-medium">{user.name}</div>
                       <div className="text-sm text-muted-foreground">{user.email}</div>
-                      <div className="text-xs text-muted-foreground">@{user.username}</div>
+                      <div className="text-xs text-muted-foreground">{user.username}</div>
                     </div>
                   </TableCell>
                   <TableCell>
