@@ -327,7 +327,7 @@ export const serverAPI = {
         name: string;
         phone: string;
         role: 'USER' | 'ADMIN' | 'DEVOPS' | 'DEV';
-        passwordHash: string;
+        password: string;
     }): Promise<User | undefined> {
         try {
             return await apiClient.post<User>(

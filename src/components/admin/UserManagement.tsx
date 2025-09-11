@@ -212,7 +212,7 @@ export function UserManagement() {
         name: formData.name,
         phone: formData.phone,
         role: formData.role,
-        passwordHash: formData.password,
+        password: formData.password,
       })
 
       if (newUser !== undefined) {
