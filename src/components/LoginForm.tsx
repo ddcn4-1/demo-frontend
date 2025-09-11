@@ -122,6 +122,22 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                             >
                                 일반사용자
                             </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => quickLogin('dev@ticket.com')}
+                                type="button"
+                            >
+                                개발자
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => quickLogin('ops@ticket.com')}
+                                type="button"
+                            >
+                                DevOps
+                            </Button>
                         </div>
                     </div>
 
@@ -130,7 +146,8 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                         <div className="text-xs space-y-1 text-muted-foreground">
                             <div>관리자: admin@ticket.com / password123</div>
                             <div>일반사용자: user@ticket.com / password123</div>
-                            <div>개발자: john@ticket.com / password123</div>
+                            <div>개발자: dev@ticket.com / password123</div>
+                            <div>DevOps: ops@ticket.com / password123</div>
                         </div>
                     </div>
                 </CardContent>
