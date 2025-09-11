@@ -1,23 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { LoginForm } from './components/LoginForm';
-import { ClientDashboard } from './components/ClientDashboard';
-import { AdminDashboard } from './components/AdminDashboard';
-import { PerformanceDetail } from './components/PerformanceDetail';
-import { SeatSelection } from './components/SeatSelection';
-import { Breadcrumb } from './components/Breadcrumb';
-import { Button } from './components/ui/button';
-import { LogOut } from 'lucide-react';
-import { User, Performance } from './data/mockServer';
+import React, { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+  useParams,
+} from "react-router-dom";
+import { LoginForm } from "./components/LoginForm";
+import { ClientDashboard } from "./components/ClientDashboard";
+import { AdminDashboard } from "./components/AdminDashboard";
+import { PerformanceDetail } from "./components/PerformanceDetail";
+import { SeatSelection } from "./components/SeatSelection";
+import { Breadcrumb } from "./components/Breadcrumb";
+import { Button } from "./components/ui/button";
+import { LogOut } from "lucide-react";
+import { User, Performance } from "./data/mockServer";
 
 // Protected Route Component - redirects to login but preserves intended destination
-function ProtectedRoute({ children, user, redirectTo = "/login" }: { 
-  children: React.ReactNode; 
-  user: User | null; 
+function ProtectedRoute({
+  children,
+  user,
+  redirectTo = "/login",
+}: {
+  children?: React.ReactNode;
+  user: User | null;
   redirectTo?: string;
 }) {
   const location = useLocation();
-  
+
   if (!user) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
@@ -25,8 +37,12 @@ function ProtectedRoute({ children, user, redirectTo = "/login" }: {
 }
 
 // Public Layout Component (for non-authenticated users)
-function PublicLayout({ user, onLogin, onLogout }: { 
-  user: User | null; 
+function PublicLayout({
+  user,
+  onLogin,
+  onLogout,
+}: {
+  user: User | null;
   onLogin: (userData: User) => void;
   onLogout: () => void;
 }) {
@@ -38,9 +54,9 @@ function PublicLayout({ user, onLogin, onLogout }: {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 
-              className="text-xl font-medium cursor-pointer hover:text-primary/80" 
-              onClick={() => navigate('/')}
+            <h1
+              className="text-xl font-medium cursor-pointer hover:text-primary/80"
+              onClick={() => navigate("/")}
             >
               Ticket Booking System
             </h1>
@@ -50,33 +66,45 @@ function PublicLayout({ user, onLogin, onLogout }: {
                   Welcome, {user.name} ({user.role})
                 </p>
                 <p className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded mt-1">
-                  {location.pathname}{location.search}
+                  {location.pathname}
+                  {location.search}
                 </p>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Browse performances • <span className="cursor-pointer text-primary hover:underline" onClick={() => navigate('/login')}>Login</span> to book tickets
+                Browse performances •{" "}
+                <span
+                  className="cursor-pointer text-primary hover:underline"
+                  onClick={() => navigate("/login")}
+                >
+                  Login
+                </span>{" "}
+                to book tickets
               </p>
             )}
           </div>
           <div className="flex gap-2">
             {user ? (
               <>
-                <Button variant="outline" onClick={() => navigate('/dashboard?tab=history')}>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/dashboard?tab=history")}
+                >
                   My Bookings
                 </Button>
-                <Button variant="outline" onClick={() => {
-                  onLogout();
-                  navigate('/');
-                }}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onLogout();
+                    navigate("/");
+                  }}
+                >
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
                 </Button>
               </>
             ) : (
-              <Button onClick={() => navigate('/login')}>
-                Login
-              </Button>
+              <Button onClick={() => navigate("/login")}>Login</Button>
             )}
           </div>
         </div>
@@ -87,44 +115,56 @@ function PublicLayout({ user, onLogin, onLogout }: {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<ClientDashboard user={user} />} />
-          <Route path="/performances" element={<ClientDashboard user={user} />} />
-          <Route path="/performances/:id" element={<PerformanceDetailRoute user={user} />} />
-          
+          <Route
+            path="/performances"
+            element={<ClientDashboard user={user} />}
+          />
+          <Route
+            path="/performances/:id"
+            element={<PerformanceDetailRoute user={user} />}
+          />
+
           {/* Protected Routes */}
-          <Route 
-            path="/performances/:id/booking" 
+          <Route
+            path="/performances/:id/booking"
             element={
               <ProtectedRoute user={user}>
                 <SeatSelectionRoute user={user!} />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute user={user}>
                 <ClientDashboard user={user!} />
               </ProtectedRoute>
-            } 
+            }
           />
-          
+
           {/* Admin Routes */}
-          {user && (user.role === 'ADMIN' || user.role === 'DevOps' || user.role === 'Dev') && (
-            <Route path="/admin/*" element={<AdminDashboard user={user} />} />
-          )}
-          
+          {user &&
+            (user.role === "ADMIN" ||
+              user.role === "DevOps" ||
+              user.role === "Dev") && (
+              <Route path="/admin/*" element={<AdminDashboard user={user} />} />
+            )}
+
           {/* Login Route */}
-          <Route 
-            path="/login" 
+          <Route
+            path="/login"
             element={
               user ? (
-                <Navigate to={user.role === 'USER' ? '/dashboard' : '/admin'} replace />
+                <Navigate
+                  to={user.role === "USER" ? "/dashboard" : "/admin"}
+                  replace
+                />
               ) : (
                 <LoginForm onLogin={onLogin} />
               )
-            } 
+            }
           />
-          
+
           {/* Catch all route - redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -137,10 +177,10 @@ function PublicLayout({ user, onLogin, onLogout }: {
 function AdminLayout({ user, onLogout }: { user: User; onLogout: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const handleLogout = () => {
     onLogout();
-    navigate('/');
+    navigate("/");
   };
 
   return (
@@ -148,9 +188,9 @@ function AdminLayout({ user, onLogout }: { user: User; onLogout: () => void }) {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 
-              className="text-xl font-medium cursor-pointer hover:text-primary/80" 
-              onClick={() => navigate('/admin')}
+            <h1
+              className="text-xl font-medium cursor-pointer hover:text-primary/80"
+              onClick={() => navigate("/admin")}
             >
               Ticket Booking System - Admin
             </h1>
@@ -158,11 +198,12 @@ function AdminLayout({ user, onLogout }: { user: User; onLogout: () => void }) {
               Welcome, {user.name} ({user.role})
             </p>
             <p className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded mt-1">
-              {location.pathname}{location.search}
+              {location.pathname}
+              {location.search}
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/')}>
+            <Button variant="outline" onClick={() => navigate("/")}>
               View Public Site
             </Button>
             <Button variant="outline" onClick={handleLogout}>
@@ -186,22 +227,24 @@ function PerformanceDetailRoute({ user }: { user: User | null }) {
   const navigate = useNavigate();
   const location = useLocation();
   const performance = location.state?.performance as Performance;
-  
+
   if (!performance) {
-    navigate('/');
+    navigate("/");
     return null;
   }
 
   const handleBack = () => {
-    navigate('/');
+    navigate("/");
   };
 
   const handleBookNow = (perf: Performance) => {
     if (!user) {
-      navigate('/login', { state: { from: location } });
+      navigate("/login", { state: { from: location } });
       return;
     }
-    navigate(`/performances/${perf.performance_id}/booking`, { state: { performance: perf } });
+    navigate(`/performances/${perf.performance_id}/booking`, {
+      state: { performance: perf },
+    });
   };
 
   return (
@@ -216,25 +259,43 @@ function PerformanceDetailRoute({ user }: { user: User | null }) {
 function SeatSelectionRoute({ user }: { user: User }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { id } = useParams<{ id: string }>();
   const performance = location.state?.performance as Performance;
-  
-  if (!performance) {
-    navigate('/');
+
+  // Get performanceId from URL params or performance object
+  const performanceId = id ? parseInt(id) : performance?.performance_id;
+
+  if (!performanceId) {
+    navigate("/");
     return null;
   }
 
   const handleBack = () => {
-    navigate(`/performances/${performance.performance_id}`, { state: { performance } });
+    if (performance) {
+      navigate(`/performances/${performanceId}`, { state: { performance } });
+    } else {
+      navigate("/");
+    }
   };
 
   const handleComplete = () => {
-    navigate('/dashboard?tab=history');
+    navigate("/dashboard?tab=history");
+  };
+
+  // Convert User to UserInfo format expected by SeatSelection
+  const userInfo = {
+    userId: user.user_id,
+    username: user.username,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    lastLogin: user.last_login,
   };
 
   return (
     <SeatSelection
-      performance={performance}
-      user={user}
+      performanceId={performanceId}
+      user={userInfo}
       onBack={handleBack}
       onComplete={handleComplete}
     />
@@ -250,7 +311,7 @@ function AppContent() {
 
   useEffect(() => {
     // Check for existing session
-    const savedUser = localStorage.getItem('currentUser');
+    const savedUser = localStorage.getItem("currentUser");
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
@@ -259,21 +320,21 @@ function AppContent() {
 
   const handleLogin = (userData: User) => {
     setUser(userData);
-    localStorage.setItem('currentUser', JSON.stringify(userData));
-    
+    localStorage.setItem("currentUser", JSON.stringify(userData));
+
     // Navigate to intended destination or appropriate dashboard
     const intendedDestination = location.state?.from?.pathname;
-    if (intendedDestination && intendedDestination !== '/login') {
-      navigate(intendedDestination + (location.state?.from?.search || ''));
+    if (intendedDestination && intendedDestination !== "/login") {
+      navigate(intendedDestination + (location.state?.from?.search || ""));
     } else {
-      navigate(userData.role === 'USER' ? '/dashboard' : '/admin');
+      navigate(userData.role === "USER" ? "/dashboard" : "/admin");
     }
   };
 
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('mockAuthToken');
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("mockAuthToken");
   };
 
   if (loading) {
@@ -287,21 +348,30 @@ function AppContent() {
   return (
     <Routes>
       {/* Admin Routes - require authentication and admin role */}
-      <Route 
-        path="/admin/*" 
+      <Route
+        path="/admin/*"
         element={
-          user && (user.role === 'ADMIN' || user.role === 'DevOps' || user.role === 'Dev') ? (
+          user &&
+          (user.role === "ADMIN" ||
+            user.role === "DevOps" ||
+            user.role === "Dev") ? (
             <AdminLayout user={user} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" replace />
           )
-        } 
+        }
       />
-      
+
       {/* All other routes use public layout */}
-      <Route 
-        path="/*" 
-        element={<PublicLayout user={user} onLogin={handleLogin} onLogout={handleLogout} />} 
+      <Route
+        path="/*"
+        element={
+          <PublicLayout
+            user={user}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+          />
+        }
       />
     </Routes>
   );

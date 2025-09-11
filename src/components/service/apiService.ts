@@ -1,6 +1,7 @@
 import {
     User,
     Performance,
+    PerformanceResponse,
     Booking,
     Seat,
     Venue,
@@ -8,6 +9,8 @@ import {
 } from '../type/index';
 import { API_CONFIG, shouldUseMock } from '../../config/api.config';
 import { serverAPI as mockAPI } from '../../data/mockServer';
+// Auth는 별도로 export
+export { authService } from '../service/authService';
 
 // HTTP Client with error handling
 class ApiClient {
@@ -82,6 +85,40 @@ class ApiClient {
     }
 }
 
+// performance data transform util function
+const transformPerformanceData = (
+    response: PerformanceResponse
+): Performance => {
+    const transformed: Performance = {
+        // 백엔드 응답 직접 매핑
+        performance_id: response.performanceId,
+        title: response.title,
+        venue: response.venue,
+        venue_name: response.venue,
+        theme: response.theme,
+        description: response.description || 'default text',
+        poster_url: response.posterUrl,
+        price: response.price,
+        base_price: response.price,
+        status: response.status,
+        start_date: response.startDate,
+        end_date: response.endDate,
+        running_time: response.runningTime,
+        venue_address: response.venueAddress,
+
+        // 스케줄 변환
+        schedules: response.schedules.map((schedule) => ({
+            schedule_id: schedule.scheduleId,
+            show_datetime: schedule.showDatetime,
+            available_seats: schedule.availableSeats,
+            total_seats: schedule.totalSeats,
+            status: schedule.status,
+        })),
+    };
+
+    return transformed;
+};
+
 const apiClient = new ApiClient(API_CONFIG.BASE_URL, API_CONFIG.TIMEOUT);
 
 // Unified API Service - 자동으로 mock 또는 실제 API 선택
@@ -101,7 +138,6 @@ export const serverAPI = {
             return [];
         }
     },
-
     async searchPerformances(searchParams: {
         name?: string;
         venue?: string;
@@ -129,18 +165,34 @@ export const serverAPI = {
         }
     },
 
-    async getPerformanceById(id: number): Promise<Performance | null> {
-        if (shouldUseMock('PERFORMANCES')) {
-            return await mockAPI.getPerformanceById(id);
-        }
-
+    async getPerformanceById(performanceId: number): Promise<Performance> {
         try {
-            return await apiClient.get<Performance>(
-                `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${id}`
+            console.log('API - Requesting performance with ID:', performanceId);
+
+            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`;
+            const backendResponse = await apiClient.get<PerformanceResponse>(
+                endpoint
             );
+
+            console.log('API - Raw backend response:', backendResponse);
+
+            // 백엔드 응답 검증
+            if (!backendResponse || !backendResponse.performanceId) {
+                throw new Error(
+                    'Invalid performance data received from backend'
+                );
+            }
+
+            const transformedData = transformPerformanceData(backendResponse);
+
+            console.log('API - Final transformed data:', transformedData);
+            return transformedData;
         } catch (error) {
-            console.error('Failed to fetch performance:', error);
-            return null;
+            console.error(
+                `Failed to get performance by id ${performanceId}:`,
+                error
+            );
+            throw error;
         }
     },
 
@@ -192,36 +244,39 @@ export const serverAPI = {
         }
     },
 
-    // Auth endpoints (항상 실제 API 사용)
-    async login(identifier: string, password: string): Promise<User | null> {
-        try {
-            const response = await apiClient.post<{ user: User; token: string }>(
-                `${API_CONFIG.ENDPOINTS.AUTH}/login`,
-                { identifier, password }
-            );
-
-            if (response.token) {
-                localStorage.setItem('authToken', response.token);
-                localStorage.setItem('currentUser', JSON.stringify(response.user));
-                return response.user;
-            }
-            return null;
-        } catch (error) {
-            console.error('Login failed:', error);
-            return null;
-        }
-    },
-
-    async logout(): Promise<void> {
-        try {
-            await apiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/logout`);
-        } catch (error) {
-            console.error('Logout failed:', error);
-        } finally {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('currentUser');
-        }
-    },
+    // // Auth endpoints (항상 실제 API 사용)
+    // async login(identifier: string, password: string): Promise<User | null> {
+    //     try {
+    //         const response = await apiClient.post<{
+    //             user: User;
+    //             token: string;
+    //         }>(`${API_CONFIG.ENDPOINTS.AUTH}/login`, { identifier, password });
+    //
+    //         if (response.token) {
+    //             localStorage.setItem('authToken', response.token);
+    //             localStorage.setItem(
+    //                 'currentUser',
+    //                 JSON.stringify(response.user)
+    //             );
+    //             return response.user;
+    //         }
+    //         return null;
+    //     } catch (error) {
+    //         console.error('Login failed:', error);
+    //         return null;
+    //     }
+    // },
+    //
+    // async logout(): Promise<void> {
+    //     try {
+    //         await apiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/logout`);
+    //     } catch (error) {
+    //         console.error('Logout failed:', error);
+    //     } finally {
+    //         localStorage.removeItem('authToken');
+    //         localStorage.removeItem('currentUser');
+    //     }
+    // },
 
     // Other endpoints
     async getUsers(): Promise<User[]> {
