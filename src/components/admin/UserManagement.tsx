@@ -242,9 +242,26 @@ export function UserManagement() {
     resetForm();
   };
 
-  const handleDeleteUser = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(prev => prev.filter(user => user.user_id !== id));
+  const handleDeleteUser = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const success = await serverAPI.deleteUser(id);
+
+      if (success) {
+        setUsers(prev => prev.filter(user => user.user_id !== id));
+        console.log('사용자가 삭제 성공');
+      } else {
+        throw new Error('사용자 삭제 실패');
+      }
+    } catch (error) {
+      console.error('사용자 삭제 실패: ', error);
+    } finally {
+      setLoading(false);
     }
   };
 

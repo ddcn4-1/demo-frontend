@@ -281,6 +281,17 @@ export const serverAPI = {
         }
     },
 
+    async deleteUser(userId: number): Promise<boolean> {
+        try {
+            await apiClient.delete(
+                `${API_CONFIG.ENDPOINTS.USERS}/${userId}`
+            );
+            return true;
+        } catch (error) {
+            console.error('Failed to delete user:', error);
+            return false;
+        }
+    },
 
     async getVenues(): Promise<Venue[]> {
         if (shouldUseMock('VENUES')) {
