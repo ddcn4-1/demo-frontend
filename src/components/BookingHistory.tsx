@@ -21,12 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+
+import services from "./service/apiService";
 import {
-  bookingApi,
   BookingDto,
   GetBookingDetail200ResponseDto,
   CancelBookingRequestDto,
-} from "../libs/apis";
+} from "./type/index";
 
 interface BookingHistoryProps {
   userId: number;
@@ -48,7 +49,7 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
     const fetchBookings = async () => {
       try {
         console.log("Fetching bookings for user:", userId);
-        const response = await bookingApi.getBookings();
+        const response = await services.booking.getBookings();
         console.log("Bookings response:", response);
         setBookings(response.bookings);
       } catch (error) {
@@ -68,7 +69,7 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
 
     // 예약 상세 정보 로드
     try {
-      const details = await bookingApi.getBookingDetail(booking.bookingId);
+      const details = await services.booking.getBookingDetail(booking.bookingId);
       setBookingDetails(details);
     } catch (error) {
       console.error("Failed to fetch booking details:", error);
@@ -90,7 +91,7 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
         reason: reason,
       };
 
-      const response = await bookingApi.cancelBooking(
+      const response = await services.booking.cancelBooking(
         cancellingBooking.bookingId,
         cancelRequest
       );
@@ -98,7 +99,7 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
       console.log("Booking cancelled successfully:", response);
 
       // 예약 목록 새로고침
-      const updatedBookings = await bookingApi.getBookings();
+      const updatedBookings = await services.booking.getBookings();
       setBookings(updatedBookings.bookings);
 
       alert("예약이 성공적으로 취소되었습니다.");
