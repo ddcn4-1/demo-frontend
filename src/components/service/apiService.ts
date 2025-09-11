@@ -2,6 +2,7 @@ import {
     User,
     Performance,
     PerformanceResponse,
+    ScheduleResponse,
     Booking,
     Seat,
     Venue,
@@ -9,7 +10,15 @@ import {
 } from '../type/index';
 import { API_CONFIG, shouldUseMock } from '../../config/api.config';
 import { serverAPI as mockAPI } from '../../data/mockServer';
-// Auth는 별도로 export
+
+import { bookingService } from './bookingService';
+import { seatService } from './seatService';
+import { venueService } from './venueService';
+
+// Re-export services
+export { bookingService } from './bookingService';
+export { seatService } from './seatService';
+export { venueService } from './venueService';
 export { authService } from '../service/authService';
 
 // HTTP Client with error handling
@@ -123,9 +132,24 @@ const transformPerformanceData = (
     return transformed;
 };
 
-const apiClient = new ApiClient(API_CONFIG.BASE_URL, API_CONFIG.TIMEOUT);
+export const apiClient = new ApiClient(API_CONFIG.BASE_URL, API_CONFIG.TIMEOUT);
 
-// Unified API Service - 자동으로 mock 또는 실제 API 선택
+
+// Export all services as a single object for convenience
+export const services = {
+    booking: bookingService,
+    seat: seatService,
+    venue: venueService,
+
+    // auth: authService,
+    // user: userService,
+    // performance: performanceService,
+    // admin: adminApi,
+};
+
+// Export default
+export default services;
+
 export const serverAPI = {
     // Public endpoints (no auth required)
     async getPerformances(): Promise<Performance[]> {
@@ -194,6 +218,24 @@ export const serverAPI = {
         } catch (error) {
             console.error(
                 `Failed to get performance by id ${performanceId}:`,
+                error
+            );
+            throw error;
+        }
+    },
+
+    async getPerformanceSchedules(performanceId: number): Promise<{ schedules: ScheduleResponse[] }> {
+        try {
+            console.log('API - Requesting schedules for performance ID:', performanceId);
+            
+            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}/schedules`;
+            const response = await apiClient.get<{ schedules: ScheduleResponse[] }>(endpoint);
+            
+            console.log('API - Schedules response:', response);
+            return response;
+        } catch (error) {
+            console.error(
+                `Failed to get schedules for performance ${performanceId}:`,
                 error
             );
             throw error;

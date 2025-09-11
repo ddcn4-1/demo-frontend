@@ -3,16 +3,15 @@ import { Card, CardHeader, CardContent, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { ArrowLeft, Users } from "lucide-react";
+import services from "./service/apiService";
+import {serverAPI} from "./service/apiService";
 import {
-  performanceApi,
-  seatApi,
-  bookingApi,
-  PerformanceResponse,
-  ScheduleResponse,
   SeatDto,
   CreateBookingRequestDto,
+  PerformanceResponse,
+  ScheduleResponse,
   UserInfo,
-} from "../libs/apis";
+} from "./type/index";
 
 interface SeatSelectionProps {
   performanceId: number;
@@ -57,7 +56,7 @@ export function SeatSelection({
     try {
       // Load performance details
       console.log("Fetching performance details...");
-      const performanceData = await performanceApi.getPerformanceById(
+      const performanceData = await serverAPI.getPerformanceById(
         performanceId
       );
       console.log("Performance data:", performanceData);
@@ -66,7 +65,7 @@ export function SeatSelection({
       // Load schedules for this performance
       console.log("Fetching performance schedules...");
       try {
-        const schedulesData = await performanceApi.getPerformanceSchedules(
+        const schedulesData = await serverAPI.getPerformanceSchedules(
           performanceId
         );
         console.log("Schedules data received:", schedulesData);
@@ -110,7 +109,7 @@ export function SeatSelection({
     try {
       // Get seat availability for the selected schedule
       console.log("Fetching seats for schedule:", scheduleId);
-      const seatResponse = await seatApi.getScheduleSeats(scheduleId);
+      const seatResponse = await services.seat.getScheduleSeats(scheduleId);
       console.log("Seat response received:", seatResponse);
       setSeats(seatResponse.data.seats);
       console.log("Setting booking step to seats");
@@ -253,7 +252,7 @@ export function SeatSelection({
       };
 
       console.log("예약 요청 데이터:", bookingRequest);
-      const bookingResponse = await bookingApi.createBooking(bookingRequest);
+      const bookingResponse = await services.booking.createBooking(bookingRequest);
       console.log("예약 응답:", bookingResponse);
 
       alert(
@@ -267,7 +266,7 @@ export function SeatSelection({
       // 예약 실패 시 좌석 상태를 다시 조회하여 최신 상태로 업데이트
       console.log("예약 실패로 인한 좌석 상태 재조회 시작...");
       try {
-        const seatResponse = await seatApi.getScheduleSeats(selectedSchedule);
+        const seatResponse = await services.seat.getScheduleSeats(selectedSchedule);
         console.log("좌석 상태 재조회 완료:", seatResponse);
         setSeats(seatResponse.data.seats);
         // 선택된 좌석 초기화 (상태가 변경되었을 수 있으므로)
