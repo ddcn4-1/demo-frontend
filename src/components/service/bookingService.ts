@@ -77,7 +77,7 @@ export const bookingService = {
   async adminConfirmBooking(
     bookingId: number
   ): Promise<GetBookingDetail200ResponseDto> {
-    await apiClient.put<unknown>(`/v1/admin/bookings/${bookingId}/confirm`);
+    await apiClient.put<void>(`/v1/admin/bookings/${bookingId}/confirm`);
     return apiClient.get<GetBookingDetail200ResponseDto>(
       `/v1/admin/bookings/${bookingId}`
     );
