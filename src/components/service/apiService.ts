@@ -326,7 +326,7 @@ export const serverAPI = {
         username: string;
         name: string;
         phone: string;
-        role: 'USER' | 'ADMIN' | 'DevOps' | 'Dev';
+        role: 'USER' | 'ADMIN' | 'DEVOPS' | 'DEV';
         passwordHash: string;
     }): Promise<User | undefined> {
         try {

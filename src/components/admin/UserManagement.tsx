@@ -83,8 +83,8 @@ const UserForm = ({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="USER">User</SelectItem>
-            <SelectItem value="Dev">Developer</SelectItem>
-            <SelectItem value="DevOps">DevOps</SelectItem>
+            <SelectItem value="DEV">Developer</SelectItem>
+            <SelectItem value="DEVOPS">DevOps</SelectItem>
             <SelectItem value="ADMIN">Admin</SelectItem>
           </SelectContent>
         </Select>
@@ -277,7 +277,7 @@ export function UserManagement() {
     });
   };
 
-  const handleStatusChange = (userId: number, newStatus: 'active' | 'inactive' | 'suspended') => {
+  const handleStatusChange = (userId: number, newStatus: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED') => {
     setUsers(prev => prev.map(user =>
       user.user_id === userId
         ? { ...user, status: newStatus }
@@ -299,8 +299,8 @@ export function UserManagement() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'ADMIN': return 'destructive';
-      case 'DevOps': return 'default';
-      case 'Dev': return 'secondary';
+      case 'DEVOPS': return 'default';
+      case 'DEV': return 'secondary';
       case 'USER': return 'outline';
       default: return 'outline';
     }
@@ -308,9 +308,9 @@ export function UserManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'default';
-      case 'inactive': return 'secondary';
-      case 'suspended': return 'destructive';
+      case 'ACTIVE': return 'default';
+      case 'INACTIVE': return 'secondary';
+      case 'SUSPENDED': return 'destructive';
       default: return 'outline';
     }
   };
@@ -398,7 +398,7 @@ export function UserManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Active Users</p>
                 <p className="text-xl font-medium">
-                  {users.filter(u => u.status === 'active').length}
+                  {users.filter(u => u.status === 'ACTIVE').length}
                 </p>
               </div>
             </div>
@@ -412,7 +412,7 @@ export function UserManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Admin/Staff</p>
                 <p className="text-xl font-medium">
-                  {users.filter(u => ['ADMIN', 'DevOps', 'Dev'].includes(u.role)).length}
+                  {users.filter(u => ['ADMIN', 'DEVOPS', 'DEV'].includes(u.role)).length}
                 </p>
               </div>
             </div>
@@ -426,7 +426,7 @@ export function UserManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Suspended</p>
                 <p className="text-xl font-medium">
-                  {users.filter(u => u.status === 'suspended').length}
+                  {users.filter(u => u.status === 'SUSPENDED').length}
                 </p>
               </div>
             </div>
@@ -455,8 +455,8 @@ export function UserManagement() {
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="USER">Users</SelectItem>
-                <SelectItem value="Dev">Developers</SelectItem>
-                <SelectItem value="DevOps">DevOps</SelectItem>
+                <SelectItem value="DEV">Developers</SelectItem>
+                <SelectItem value="DEVOPS">DevOps</SelectItem>
                 <SelectItem value="ADMIN">Admins</SelectItem>
               </SelectContent>
             </Select>
@@ -467,9 +467,9 @@ export function UserManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                <SelectItem value="SUSPENDED">Suspended</SelectItem>
               </SelectContent>
             </Select>
 
