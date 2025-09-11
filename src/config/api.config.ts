@@ -20,7 +20,7 @@ const development: ApiConfig = {
   ENDPOINTS: {
     AUTH: "/auth",
     ADMIN_AUTH: "/admin/auth",
-    USERS: "/admin/users",
+    USERS: "/v1/admin/users",
     PERFORMANCES: "/v1/performances",
     BOOKINGS: "/api/bookings",
     VENUES: "/api/venues",
@@ -36,7 +36,7 @@ const production: ApiConfig = {
   ENDPOINTS: {
     AUTH: "/auth",
     ADMIN_AUTH: "/admin/auth",
-    USERS: "/admin/users",
+    USERS: "/v1/admin/users",
     PERFORMANCES: "/v1/performances",
     BOOKINGS: "/api/bookings",
     VENUES: "/api/venues",
