@@ -1,14 +1,9 @@
-// Breadcrumb.tsx
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 import { Button } from './ui/button';
 
-interface BreadcrumbProps {
-    performanceTitle?: string;
-}
-
-export function Breadcrumb({ performanceTitle }: BreadcrumbProps) {
+export function Breadcrumb() {
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -57,14 +52,19 @@ export function Breadcrumb({ performanceTitle }: BreadcrumbProps) {
 
             if (segments.length >= 3) {
                 const performanceId = segments[2];
-                const detailLabel = performanceTitle || 'Performance Details';
-                breadcrumbs.push({
-                    label: detailLabel,
-                    path: `/performances/${performanceId}`,
-                });
+                const detailPath = `/performances/${performanceId}`;
 
                 if (path.endsWith('/booking')) {
+                    breadcrumbs.push({
+                        label: 'Performance Details',
+                        path: detailPath,
+                    });
                     breadcrumbs.push({ label: 'Seat Selection', path: path });
+                } else {
+                    breadcrumbs.push({
+                        label: 'Performance Details',
+                        path: path,
+                    });
                 }
             }
         } else if (path === '/login') {
@@ -92,7 +92,7 @@ export function Breadcrumb({ performanceTitle }: BreadcrumbProps) {
             </Button>
 
             {breadcrumbs.map((crumb, index) => (
-                <React.Fragment key={crumb.path}>
+                <React.Fragment key={`${crumb.path}-${index}`}>
                     <ChevronRight className="w-4 h-4" />
                     {index === breadcrumbs.length - 1 ? (
                         <span className="text-foreground font-medium">

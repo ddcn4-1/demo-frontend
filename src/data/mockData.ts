@@ -2,6 +2,103 @@
 // This file contains all mock data used throughout the application
 // Replace with actual API calls when integrating with backend
 
+export interface User {
+    user_id: number;
+    email: string;
+    username: string;
+    name: string;
+    role: 'USER' | 'ADMIN' | 'DevOps' | 'Dev';
+    created_at: string;
+    last_login?: string;
+}
+
+export interface Venue {
+    venue_id: number;
+    name: string;
+    address: string;
+    city: string;
+    total_capacity: number;
+    created_at: string;
+}
+
+export interface PerformanceSchedule {
+    schedule_id: number;
+    show_datetime: string;
+    total_seats: number;
+    available_seats: number;
+    base_price: number;
+    status: 'SCHEDULED' | 'CANCELLED' | 'COMPLETED' | 'ONGOING';
+    created_at: string;
+}
+
+export interface Performance {
+    performance_id: number;
+    title: string;
+    description: string;
+    venue_id: number;
+    venue_name: string;
+    duration_minutes: number;
+    status: 'SCHEDULED' | 'CANCELLED' | 'COMPLETED' | 'ONGOING';
+    created_at: string;
+    image_url?: string;
+    category: string;
+    age_rating?: string;
+    performance_notes?: string;
+    schedules: PerformanceSchedule[];
+    // Legacy fields for backward compatibility
+    show_datetime: string;
+    total_seats: number;
+    available_seats: number;
+    base_price: number;
+}
+
+export interface Seat {
+    seat_id: number;
+    venue_id: number;
+    seat_row: string;
+    seat_number: string;
+    seat_grade: 'VIP' | 'Premium' | 'S' | 'A' | 'R';
+    seat_price: number;
+    is_available: boolean;
+}
+
+export interface Booking {
+    booking_id: number;
+    booking_number: string;
+    user_id: number;
+    performance_id: number;
+    performance_title: string;
+    venue_name: string;
+    show_datetime: string;
+    seat_count: number;
+    total_amount: number;
+    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+    booked_at: string;
+    cancelled_at?: string;
+    cancellation_reason?: string;
+    refund_status?: 'PENDING' | 'PROCESSING' | 'COMPLETED';
+    refund_amount?: number;
+    seats: Array<{
+        seat_id: number;
+        seat_row: string;
+        seat_number: string;
+        seat_grade: string;
+        seat_price: number;
+    }>;
+}
+
+export interface SystemMetrics {
+    totalUsers: number;
+    totalBookings: number;
+    totalRevenue: number;
+    activePerformances: number;
+    serverStatus: 'online' | 'offline' | 'maintenance';
+    memoryUsage: number;
+    cpuUsage: number;
+    diskUsage: number;
+    uptime: string;
+}
+
 // Mock Users Data
 export const mockUsers: User[] = [
     {
@@ -96,14 +193,38 @@ export const mockPerformances: Performance[] = [
             'The beloved musical returns with stunning performances and breathtaking visuals.',
         venue_id: 1,
         venue_name: 'Grand Opera House',
-        show_datetime: '2025-10-15T19:00:00',
         duration_minutes: 180,
-        total_seats: 2000,
-        available_seats: 1850,
-        base_price: 75000,
         status: 'SCHEDULED',
         created_at: '2025-08-01T10:00:00Z',
         category: 'Musical',
+        age_rating: '12+',
+        performance_notes:
+            'Please arrive 30 minutes before curtain time. Late arrivals will be seated during the first suitable interval.',
+        schedules: [
+            {
+                schedule_id: 101,
+                show_datetime: '2025-10-15T19:00:00',
+                total_seats: 2000,
+                available_seats: 1850,
+                base_price: 75000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-01T10:00:00Z',
+            },
+            {
+                schedule_id: 102,
+                show_datetime: '2025-10-16T19:00:00',
+                total_seats: 2000,
+                available_seats: 1920,
+                base_price: 75000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-01T10:00:00Z',
+            },
+        ],
+        // Legacy fields (using first schedule for backward compatibility)
+        show_datetime: '2025-10-15T19:00:00',
+        total_seats: 2000,
+        available_seats: 1850,
+        base_price: 75000,
     },
     {
         performance_id: 2,
@@ -112,14 +233,47 @@ export const mockPerformances: Performance[] = [
             "Experience the timeless beauty of Tchaikovsky's masterpiece.",
         venue_id: 2,
         venue_name: 'National Theater',
-        show_datetime: '2025-09-07T19:30:00',
         duration_minutes: 150,
-        total_seats: 1500,
-        available_seats: 1200,
-        base_price: 65000,
         status: 'SCHEDULED',
         created_at: '2025-08-15T14:00:00Z',
         category: 'Ballet',
+        age_rating: 'All ages',
+        performance_notes:
+            'This production features live orchestra accompaniment.',
+        schedules: [
+            {
+                schedule_id: 201,
+                show_datetime: '2025-09-07T19:30:00',
+                total_seats: 1500,
+                available_seats: 1200,
+                base_price: 65000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-15T14:00:00Z',
+            },
+            {
+                schedule_id: 202,
+                show_datetime: '2025-09-08T14:00:00',
+                total_seats: 1500,
+                available_seats: 1350,
+                base_price: 60000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-15T14:00:00Z',
+            },
+            {
+                schedule_id: 203,
+                show_datetime: '2025-09-08T19:30:00',
+                total_seats: 1500,
+                available_seats: 1100,
+                base_price: 65000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-15T14:00:00Z',
+            },
+        ],
+        // Legacy fields
+        show_datetime: '2025-09-07T19:30:00',
+        total_seats: 1500,
+        available_seats: 1200,
+        base_price: 65000,
     },
     {
         performance_id: 3,
@@ -127,14 +281,29 @@ export const mockPerformances: Performance[] = [
         description: 'An electrifying night of rock music with top artists.',
         venue_id: 3,
         venue_name: 'Arena Stadium',
-        show_datetime: '2025-12-21T19:00:00',
         duration_minutes: 240,
-        total_seats: 50000,
-        available_seats: 45000,
-        base_price: 80000,
         status: 'SCHEDULED',
         created_at: '2025-09-01T16:00:00Z',
         category: 'Concert',
+        age_rating: '16+',
+        performance_notes:
+            'Standing area available. Loud volume - ear protection recommended.',
+        schedules: [
+            {
+                schedule_id: 301,
+                show_datetime: '2025-12-21T19:00:00',
+                total_seats: 50000,
+                available_seats: 45000,
+                base_price: 80000,
+                status: 'SCHEDULED',
+                created_at: '2025-09-01T16:00:00Z',
+            },
+        ],
+        // Legacy fields
+        show_datetime: '2025-12-21T19:00:00',
+        total_seats: 50000,
+        available_seats: 45000,
+        base_price: 80000,
     },
     {
         performance_id: 4,
@@ -142,14 +311,27 @@ export const mockPerformances: Performance[] = [
         description: 'A sophisticated evening of classical masterpieces.',
         venue_id: 4,
         venue_name: 'Symphony Hall',
-        show_datetime: '2025-08-20T19:00:00',
         duration_minutes: 120,
-        total_seats: 1200,
-        available_seats: 0,
-        base_price: 60000,
         status: 'COMPLETED',
         created_at: '2025-07-15T09:00:00Z',
         category: 'Classical',
+        age_rating: 'All ages',
+        schedules: [
+            {
+                schedule_id: 401,
+                show_datetime: '2025-08-20T19:00:00',
+                total_seats: 1200,
+                available_seats: 0,
+                base_price: 60000,
+                status: 'COMPLETED',
+                created_at: '2025-07-15T09:00:00Z',
+            },
+        ],
+        // Legacy fields
+        show_datetime: '2025-08-20T19:00:00',
+        total_seats: 1200,
+        available_seats: 0,
+        base_price: 60000,
     },
     {
         performance_id: 5,
@@ -157,14 +339,114 @@ export const mockPerformances: Performance[] = [
         description: 'The award-winning Broadway hit comes to Seoul.',
         venue_id: 2,
         venue_name: 'National Theater',
-        show_datetime: '2025-11-30T20:00:00',
         duration_minutes: 165,
-        total_seats: 1500,
-        available_seats: 1300,
-        base_price: 95000,
         status: 'SCHEDULED',
         created_at: '2025-08-20T11:00:00Z',
         category: 'Musical',
+        age_rating: '8+',
+        performance_notes:
+            'Special effects include strobe lighting and theatrical fog.',
+        schedules: [
+            {
+                schedule_id: 501,
+                show_datetime: '2025-11-30T14:00:00',
+                total_seats: 1500,
+                available_seats: 1400,
+                base_price: 85000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-20T11:00:00Z',
+            },
+            {
+                schedule_id: 502,
+                show_datetime: '2025-11-30T20:00:00',
+                total_seats: 1500,
+                available_seats: 1300,
+                base_price: 95000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-20T11:00:00Z',
+            },
+            {
+                schedule_id: 503,
+                show_datetime: '2025-12-01T14:00:00',
+                total_seats: 1500,
+                available_seats: 1450,
+                base_price: 85000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-20T11:00:00Z',
+            },
+            {
+                schedule_id: 504,
+                show_datetime: '2025-12-01T20:00:00',
+                total_seats: 1500,
+                available_seats: 1250,
+                base_price: 95000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-20T11:00:00Z',
+            },
+            {
+                schedule_id: 505,
+                show_datetime: '2025-12-02T14:00:00',
+                total_seats: 1500,
+                available_seats: 1480,
+                base_price: 85000,
+                status: 'SCHEDULED',
+                created_at: '2025-08-20T11:00:00Z',
+            },
+        ],
+        // Legacy fields
+        show_datetime: '2025-11-30T20:00:00',
+        total_seats: 1500,
+        available_seats: 1300,
+        base_price: 95000,
+    },
+    {
+        performance_id: 6,
+        title: 'Jazz Night Live',
+        description:
+            'An intimate evening of contemporary jazz featuring world-renowned artists.',
+        venue_id: 4,
+        venue_name: 'Symphony Hall',
+        duration_minutes: 135,
+        status: 'SCHEDULED',
+        created_at: '2025-09-05T12:00:00Z',
+        category: 'Jazz',
+        age_rating: 'All ages',
+        performance_notes:
+            'Features both acoustic and electric performances. Bar service available during intermission.',
+        schedules: [
+            {
+                schedule_id: 601,
+                show_datetime: '2025-10-25T19:30:00',
+                total_seats: 1200,
+                available_seats: 950,
+                base_price: 70000,
+                status: 'SCHEDULED',
+                created_at: '2025-09-05T12:00:00Z',
+            },
+            {
+                schedule_id: 602,
+                show_datetime: '2025-10-26T20:00:00',
+                total_seats: 1200,
+                available_seats: 1100,
+                base_price: 75000,
+                status: 'SCHEDULED',
+                created_at: '2025-09-05T12:00:00Z',
+            },
+            {
+                schedule_id: 603,
+                show_datetime: '2025-10-27T19:00:00',
+                total_seats: 1200,
+                available_seats: 1000,
+                base_price: 70000,
+                status: 'SCHEDULED',
+                created_at: '2025-09-05T12:00:00Z',
+            },
+        ],
+        // Legacy fields
+        show_datetime: '2025-10-25T19:30:00',
+        total_seats: 1200,
+        available_seats: 950,
+        base_price: 70000,
     },
 ];
 
@@ -732,3 +1014,6 @@ export const mockAPI = {
         });
     },
 };
+
+// Export types for use in components
+export type { User, Venue, Performance, Seat, Booking, SystemMetrics };
