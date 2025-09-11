@@ -3,13 +3,14 @@ export interface ApiConfig {
     TIMEOUT: number;
     ENDPOINTS: {
         AUTH: string;
+        ADMIN_AUTH: string;
         USERS: string;
         PERFORMANCES: string;
         BOOKINGS: string;
         VENUES: string;
         SYSTEM: string;
     };
-    MOCK_ENDPOINTS?: string[];
+    MOCK_ENDPOINTS: string[];
 }
 
 //todo: 개발 중 변경
@@ -17,29 +18,32 @@ const development: ApiConfig = {
     BASE_URL: 'http://localhost:8080',
     TIMEOUT: 10000,
     ENDPOINTS: {
-        AUTH: '/api/auth',
-        USERS: '/api/users',
+        AUTH: '/auth',
+        ADMIN_AUTH: '/admin/auth',
+        USERS: '/admin/users',
         PERFORMANCES: '/v1/performances',
         BOOKINGS: '/api/bookings',
         VENUES: '/api/venues',
         SYSTEM: '/api/system',
     },
     // ENDPOINT 정의된 엔드포인트 중에서 MOCK_ENDPOINTS 목록에 있는 엔드포인트는 mock 데이터를 사용합니다.
-    // MOCK_ENDPOINTS: ['AUTH', 'USERS', 'PERFORMANCES', 'BOOKINGS', 'VENUES', 'SYSTEM'],
+    MOCK_ENDPOINTS: ['USERS', 'SYSTEM', 'VENUES'],
 };
 
-//todo: 배포 직전 변경
 const production: ApiConfig = {
     BASE_URL: 'https://staging-api.yourticketservice.com',
     TIMEOUT: 10000,
     ENDPOINTS: {
-        AUTH: '/api/auth',
-        USERS: '/api/users',
-        PERFORMANCES: '/api/performances',
+        AUTH: '/auth',
+        ADMIN_AUTH: '/admin/auth',
+        USERS: '/admin/users',
+        PERFORMANCES: '/v1/performances',
         BOOKINGS: '/api/bookings',
         VENUES: '/api/venues',
         SYSTEM: '/api/system',
     },
+    MOCK_ENDPOINTS: [],
+
 };
 
 // 현재 환경 감지
@@ -65,7 +69,6 @@ const getConfig = (): ApiConfig => {
             return development;
     }
 };
-
 export const API_CONFIG = getConfig();
 
 // Mock 사용 여부를 확인하는 헬퍼 함수
