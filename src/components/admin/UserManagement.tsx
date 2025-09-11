@@ -537,7 +537,7 @@ export function UserManagement() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteUser(user.user_id)}
+                        onClick={() => handleDeleteUser(user.userId)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

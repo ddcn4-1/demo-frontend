@@ -55,6 +55,10 @@ class ApiClient {
                 );
             }
 
+            if (response.status === 204) {
+                return {} as T;
+            }
+
             return await response.json();
         } catch (error) {
             console.error(`API Request failed: ${url}`, error);
