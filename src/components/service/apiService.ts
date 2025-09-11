@@ -55,6 +55,10 @@ class ApiClient {
                 );
             }
 
+            if (response.status === 204) {
+                return {} as T;
+            }
+
             return await response.json();
         } catch (error) {
             console.error(`API Request failed: ${url}`, error);
@@ -289,6 +293,62 @@ export const serverAPI = {
         } catch (error) {
             console.error('Failed to fetch users:', error);
             return [];
+        }
+    },
+
+    async searchUsers(searchParams: {
+        username?: string;
+        role?: string;
+        status?: string;
+    }): Promise<User[]> {
+        try {
+            const queryString = new URLSearchParams(
+                Object.entries(searchParams).filter(
+                    ([_, value]) => value && value.trim() !== ''
+                )
+            ).toString();
+
+            const endpoint = queryString
+                ? `${API_CONFIG.ENDPOINTS.USERS}/search?${queryString}`
+                : API_CONFIG.ENDPOINTS.USERS;
+
+            console.log('search URL: ', endpoint);
+
+            return await apiClient.get<User[]>(endpoint);
+        } catch (error) {
+            console.error('Failed to search users: ', error);
+            return [];
+        }
+    },
+
+    async createUser(userData: {
+        email: string;
+        username: string;
+        name: string;
+        phone: string;
+        role: 'USER' | 'ADMIN' | 'DEVOPS' | 'DEV';
+        password: string;
+    }): Promise<User | undefined> {
+        try {
+            return await apiClient.post<User>(
+                API_CONFIG.ENDPOINTS.USERS,
+                userData
+            );
+        } catch (error) {
+            console.error('Failed to create user: ', error);
+            return undefined;
+        }
+    },
+
+    async deleteUser(userId: number): Promise<boolean> {
+        try {
+            await apiClient.delete(
+                `${API_CONFIG.ENDPOINTS.USERS}/${userId}`
+            );
+            return true;
+        } catch (error) {
+            console.error('Failed to delete user:', error);
+            return false;
         }
     },
 
