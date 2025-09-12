@@ -240,7 +240,15 @@ export interface ApiResponse<T> {
     bookingId: number;
     bookingNumber: string;
     userId: number;
+    userName?: string;
+    userPhone?: string;
     scheduleId: number;
+    venueName?: string;
+    performanceTitle?: string; // 공연 제목 추가
+    showDate?: string; // date-time format
+    seatCode?: string; // 좌석 코드 추가
+    seatZone?: string; // 좌석 구역 추가
+    seatCodes?: string[]; // 여러 좌석 코드 배열
     seatCount: number;
     totalAmount: number;
     status: "PENDING" | "CONFIRMED" | "CANCELLED";
