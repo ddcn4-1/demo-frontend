@@ -68,7 +68,25 @@ class ApiClient {
                 return {} as T;
             }
 
-            return await response.json();
+            // Check if response has content before parsing JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                // If not JSON, return empty object for successful responses
+                return {} as T;
+            }
+
+            // Check if response body is empty
+            const text = await response.text();
+            if (!text || text.trim() === '') {
+                return {} as T;
+            }
+
+            try {
+                return JSON.parse(text);
+            } catch (jsonError) {
+                console.error('JSON parsing failed:', jsonError, 'Response text:', text);
+                return {} as T;
+            }
         } catch (error) {
             console.error(`API Request failed: ${url}`, error);
             throw error;
@@ -89,6 +107,13 @@ class ApiClient {
     async put<T>(endpoint: string, data?: any): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'PUT',
+            body: data ? JSON.stringify(data) : undefined,
+        });
+    }
+    
+    async patch<T>(endpoint: string, data?: any): Promise<T> {
+        return this.request<T>(endpoint, {
+            method: 'PATCH',
             body: data ? JSON.stringify(data) : undefined,
         });
     }

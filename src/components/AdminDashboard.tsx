@@ -22,24 +22,24 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
           canManageUsers: true,
           canManagePerformances: true,
           canViewBookings: true,
+          canControlTraffic: false,
+          canViewMetrics: false,
+          canScaleInfrastructure: false
+        };
+      case 'DEVOPS':
+        return {
+          canManageUsers: true,
+          canManagePerformances: false,
+          canViewBookings: false,
           canControlTraffic: true,
           canViewMetrics: true,
           canScaleInfrastructure: true
         };
-      case 'DevOps':
+      case 'DEV':
         return {
           canManageUsers: false,
           canManagePerformances: false,
-          canViewBookings: true,
-          canControlTraffic: true,
-          canViewMetrics: true,
-          canScaleInfrastructure: true
-        };
-      case 'Dev':
-        return {
-          canManageUsers: false,
-          canManagePerformances: true,
-          canViewBookings: true,
+          canViewBookings: false,
           canControlTraffic: false,
           canViewMetrics: true,
           canScaleInfrastructure: false
@@ -113,31 +113,31 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                 </TabsTrigger>
               ))}
             </TabsList>
-            
+
             {permissions.canViewMetrics && (
               <TabsContent value="overview" className="space-y-4">
                 <SystemOverview permissions={permissions} />
               </TabsContent>
             )}
-            
+
             {permissions.canManagePerformances && (
               <TabsContent value="performances" className="space-y-4">
                 <PerformanceManagement />
               </TabsContent>
             )}
-            
+
             {permissions.canViewBookings && (
               <TabsContent value="bookings" className="space-y-4">
                 <BookingManagement permissions={permissions} />
               </TabsContent>
             )}
-            
+
             {permissions.canManageUsers && (
               <TabsContent value="users" className="space-y-4">
                 <UserManagement />
               </TabsContent>
             )}
-            
+
             {permissions.canControlTraffic && (
               <TabsContent value="traffic" className="space-y-4">
                 <TrafficControl permissions={permissions} />

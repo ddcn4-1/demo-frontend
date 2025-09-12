@@ -176,8 +176,8 @@ function PublicLayout({
                     {/* Admin Routes */}
                     {user &&
                         (user.role === 'ADMIN' ||
-                            user.role === 'DevOps' ||
-                            user.role === 'Dev') && (
+                            user.role === 'DEVOPS' ||
+                            user.role === 'DEV') && (
                             <Route
                                 path="/admin/*"
                                 element={<AdminDashboard user={user} />}
@@ -452,8 +452,8 @@ function AppContent() {
                 element={
                     user &&
                     (user.role === 'ADMIN' ||
-                        user.role === 'DevOps' ||
-                        user.role === 'Dev') ? (
+                        user.role === 'DEVOPS' ||
+                        user.role === 'DEV') ? (
                         <AdminLayout user={user} onLogout={handleLogout} />
                     ) : (
                         <Navigate to="/login" replace />

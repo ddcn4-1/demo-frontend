@@ -36,6 +36,10 @@ interface BookingHistoryProps {
 export function BookingHistory({ userId }: BookingHistoryProps) {
   const [bookings, setBookings] = useState<BookingDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<
+    'bookedDesc' | 'bookedAsc' | 'showAsc' | 'showDesc'
+  >('bookedDesc');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'CONFIRMED' | 'CANCELLED'>('all');
   const [cancellingBooking, setCancellingBooking] = useState<BookingDto | null>(
     null
   );
@@ -44,6 +48,9 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
   const [cancellationReason, setCancellationReason] = useState("");
   const [selectedCancelReason, setSelectedCancelReason] = useState("");
   const [processingCancellation, setProcessingCancellation] = useState(false);
+  const [viewingBooking, setViewingBooking] = useState<BookingDto | null>(null);
+  const [viewingBookingDetails, setViewingBookingDetails] =
+    useState<GetBookingDetail200ResponseDto | null>(null);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -67,7 +74,7 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
     setCancellationReason("");
     setSelectedCancelReason("");
 
-    // 예약 상세 정보 로드
+    // 예약 상세 정보 로드 (좌석 정보가 필요한 경우만)
     try {
       const details = await services.booking.getBookingDetail(booking.bookingId);
       setBookingDetails(details);
@@ -110,6 +117,39 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
       setProcessingCancellation(false);
       setCancellingBooking(null);
       setBookingDetails(null);
+    }
+  };
+
+  const handleCompletePayment = async (booking: BookingDto) => {
+    try {
+      console.log("Attempting to complete payment for booking:", booking.bookingId);
+      
+      // admin confirm booking API 호출
+      await services.booking.adminConfirmBooking(booking.bookingId);
+      
+      console.log("Payment completed successfully");
+      
+      // 예약 목록 새로고침
+      const updatedBookings = await services.booking.getBookings();
+      setBookings(updatedBookings.bookings);
+      
+      alert("결제가 완료되어 예약이 확정되었습니다!");
+    } catch (error) {
+      console.error("Failed to complete payment:", error);
+      alert("결제 완료에 실패했습니다. 다시 시도해주세요.");
+    }
+  };
+
+  const handleViewBookingDetail = async (booking: BookingDto) => {
+    setViewingBooking(booking);
+    setViewingBookingDetails(null);
+
+    // 예약 상세 정보 로드
+    try {
+      const details = await services.booking.getBookingDetail(booking.bookingId);
+      setViewingBookingDetails(details);
+    } catch (error) {
+      console.error("Failed to fetch booking details:", error);
     }
   };
 
@@ -209,28 +249,100 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2>My Bookings</h2>
-        <Badge variant="outline">{bookings.length} bookings</Badge>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2>Booking History</h2>
+        <div className="flex items-center gap-2 ml-auto">
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as 'all' | 'PENDING' | 'CONFIRMED' | 'CANCELLED')}
+          >
+            <SelectTrigger className="w-[160px]" aria-label="Filter status">
+              <SelectValue placeholder="Filter status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={sortBy}
+            onValueChange={(v) =>
+              setSortBy(v as 'bookedDesc' | 'bookedAsc' | 'showAsc' | 'showDesc')
+            }
+          >
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="bookedDesc">Booked • Newest first</SelectItem>
+              <SelectItem value="bookedAsc">Booked • Oldest first</SelectItem>
+              <SelectItem value="showAsc">Show • Earliest first</SelectItem>
+              <SelectItem value="showDesc">Show • Latest first</SelectItem>
+            </SelectContent>
+          </Select>
+          <Badge variant="outline">{bookings.length} bookings</Badge>
+        </div>
       </div>
 
-      {bookings.map((booking) => (
+      {bookings
+        .filter((b) => (statusFilter === 'all' ? true : b.status === statusFilter))
+        .slice()
+        .sort((a, b) => {
+          const aBooked = new Date(a.bookedAt).getTime();
+          const bBooked = new Date(b.bookedAt).getTime();
+          const aShow = a.showDate ? new Date(a.showDate).getTime() : NaN;
+          const bShow = b.showDate ? new Date(b.showDate).getTime() : NaN;
+
+          switch (sortBy) {
+            case 'bookedAsc':
+              return aBooked - bBooked;
+            case 'showAsc':
+              if (isNaN(aShow) && isNaN(bShow)) return 0;
+              if (isNaN(aShow)) return 1; // push missing showDate to end
+              if (isNaN(bShow)) return -1;
+              return aShow - bShow;
+            case 'showDesc':
+              if (isNaN(aShow) && isNaN(bShow)) return 0;
+              if (isNaN(aShow)) return 1; // push missing showDate to end
+              if (isNaN(bShow)) return -1;
+              return bShow - aShow;
+            case 'bookedDesc':
+            default:
+              return bBooked - aBooked;
+          }
+        })
+        .map((booking) => (
         <Card key={booking.bookingId}>
           <CardContent className="p-6">
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium">
-                      Performance #{booking.scheduleId}
+                    <h3 
+                      className="font-medium cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => handleViewBookingDetail(booking)}
+                    >
+                      {booking.performanceTitle || booking.venueName || `Schedule #${booking.scheduleId}`}
                     </h3>
                     <Badge variant={getStatusColor(booking.status)}>
                       {booking.status}
                     </Badge>
                   </div>
+                  {booking.venueName && booking.performanceTitle && (
+                    <p className="text-sm text-muted-foreground">
+                      {booking.venueName}
+                    </p>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     Booking: {booking.bookingNumber}
                   </p>
+                  {booking.userName && (
+                    <p className="text-sm text-muted-foreground">
+                      User: {booking.userName}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="font-medium">
@@ -245,35 +357,78 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="w-4 h-4" />
-                  <span>Schedule ID: {booking.scheduleId}</span>
+                  <span>{booking.venueName || `Schedule ID: ${booking.scheduleId}`}</span>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="w-4 h-4" />
-                  <span>Expires: {formatDate(booking.expiresAt)}</span>
+                  <span>
+                    {booking.showDate
+                      ? `Show: ${formatDate(booking.showDate)}`
+                      : booking.status === 'PENDING'
+                        ? `Expires: ${formatDate(booking.expiresAt)}`
+                        : `Booked: ${formatDate(booking.bookedAt)}`}
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="w-4 h-4" />
-                  <span>
-                    Seats: {booking.seatCount} selected
-                    {bookingDetails && bookingDetails.seats && (
-                      <span>
-                        {" "}
-                        (
-                        {bookingDetails.seats
-                          .map((s) => `Seat ${s.seatId}`)
-                          .join(", ")}
-                        )
-                      </span>
-                    )}
-                  </span>
+                <div className="flex items-start gap-2 text-sm">
+                  <Users className="w-4 h-4 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="mb-1">
+                      {booking.seatCount} seat{booking.seatCount > 1 ? "s" : ""}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {(() => {
+                        // Target: render badges equal to seatCount.
+                        const items: string[] = [];
+
+                        if (booking.seatCodes && booking.seatCodes.length > 0) {
+                          for (let i = 0; i < booking.seatCount; i++) {
+                            const seatCode = booking.seatCodes[i] ?? booking.seatCodes[booking.seatCodes.length - 1];
+                            items.push(
+                              booking.seatZone ? `${booking.seatZone}_${seatCode}` : `${seatCode}`
+                            );
+                          }
+                        } else if (booking.seatCode) {
+                          for (let i = 0; i < booking.seatCount; i++) {
+                            items.push(
+                              booking.seatZone
+                                ? `${booking.seatZone}_${booking.seatCode}`
+                                : `${booking.seatCode}`
+                            );
+                          }
+                        } else if (bookingDetails && bookingDetails.seats && bookingDetails.seats.length > 0) {
+                          for (let i = 0; i < booking.seatCount; i++) {
+                            const seat = bookingDetails.seats[i] ?? bookingDetails.seats[bookingDetails.seats.length - 1];
+                            items.push(`Seat ${seat.seatId}`);
+                          }
+                        } else {
+                          for (let i = 0; i < booking.seatCount; i++) {
+                            items.push(`Seat ${i + 1}`);
+                          }
+                        }
+
+                        return items.map((label, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {label}
+                          </Badge>
+                        ));
+                      })()}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm">
                   <CreditCard className="w-4 h-4" />
                   <span>Booked: {formatDate(booking.bookedAt)}</span>
                 </div>
+
+                {booking.showDate && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="w-4 h-4" />
+                    <span>Expires: {formatDate(booking.expiresAt)}</span>
+                  </div>
+                )}
               </div>
 
               {bookingDetails &&
@@ -324,7 +479,12 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
 
               <div className="flex gap-2 justify-end">
                 {booking.status === "PENDING" && (
-                  <Button variant="default">Complete Payment</Button>
+                  <Button 
+                    variant="default"
+                    onClick={() => handleCompletePayment(booking)}
+                  >
+                    Complete Payment
+                  </Button>
                 )}
 
                 {canCancelBooking(booking) && (
@@ -342,6 +502,9 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                       Cannot Cancel
                     </Button>
                   )}
+                <Button variant="ghost" onClick={() => handleViewBookingDetail(booking)}>
+                  View Details
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -374,6 +537,22 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                     <strong>Booking Number:</strong>{" "}
                     {cancellingBooking.bookingNumber}
                   </p>
+                  {cancellingBooking.venueName && (
+                    <p>
+                      <strong>Venue:</strong> {cancellingBooking.venueName}
+                    </p>
+                  )}
+                  {cancellingBooking.showDate && (
+                    <p>
+                      <strong>Show Date:</strong> {formatDate(cancellingBooking.showDate)}
+                    </p>
+                  )}
+                  {cancellingBooking.userName && (
+                    <p>
+                      <strong>User:</strong> {cancellingBooking.userName}
+                      {cancellingBooking.userPhone && ` (${cancellingBooking.userPhone})`}
+                    </p>
+                  )}
                   <p>
                     <strong>Schedule ID:</strong> {cancellingBooking.scheduleId}
                   </p>
@@ -505,6 +684,178 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                   )}
                 </Button>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Booking Detail View Dialog */}
+      <Dialog
+        open={!!viewingBooking}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingBooking(null);
+            setViewingBookingDetails(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Booking Details</DialogTitle>
+          </DialogHeader>
+
+          {viewingBooking && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Booking Number
+                  </p>
+                  <p className="font-medium">
+                    {viewingBooking.bookingNumber}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Status
+                  </p>
+                  <Badge variant={getStatusColor(viewingBooking.status)}>
+                    {viewingBooking.status}
+                  </Badge>
+                </div>
+
+                {viewingBooking.performanceTitle && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Performance
+                    </p>
+                    <p className="font-medium">
+                      {viewingBooking.performanceTitle}
+                    </p>
+                  </div>
+                )}
+
+                {viewingBooking.venueName && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Venue
+                    </p>
+                    <p className="font-medium">
+                      {viewingBooking.venueName}
+                    </p>
+                  </div>
+                )}
+
+                {viewingBooking.showDate && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Show Date
+                    </p>
+                    <p className="font-medium">
+                      {formatDate(viewingBooking.showDate)}
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Seats ({viewingBooking.seatCount})
+                  </p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(() => {
+                      const items: string[] = [];
+
+                      if (viewingBooking.seatCodes && viewingBooking.seatCodes.length > 0) {
+                        for (let i = 0; i < viewingBooking.seatCount; i++) {
+                          const seatCode = viewingBooking.seatCodes[i] ?? viewingBooking.seatCodes[viewingBooking.seatCodes.length - 1];
+                          items.push(
+                            viewingBooking.seatZone ? `${viewingBooking.seatZone}_${seatCode}` : `${seatCode}`
+                          );
+                        }
+                      } else if (viewingBooking.seatCode) {
+                        for (let i = 0; i < viewingBooking.seatCount; i++) {
+                          items.push(
+                            viewingBooking.seatZone
+                              ? `${viewingBooking.seatZone}_${viewingBooking.seatCode}`
+                              : `${viewingBooking.seatCode}`
+                          );
+                        }
+                      } else if (viewingBookingDetails && viewingBookingDetails.seats && viewingBookingDetails.seats.length > 0) {
+                        for (let i = 0; i < viewingBooking.seatCount; i++) {
+                          const seat = viewingBookingDetails.seats[i] ?? viewingBookingDetails.seats[viewingBookingDetails.seats.length - 1];
+                          items.push(`Seat ${seat.seatId}`);
+                        }
+                      } else {
+                        for (let i = 0; i < viewingBooking.seatCount; i++) {
+                          items.push(`Seat ${i + 1}`);
+                        }
+                      }
+
+                      return items.map((label, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {label}
+                        </Badge>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                {viewingBooking.userName && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      User
+                    </p>
+                    <p className="font-medium">
+                      {viewingBooking.userName}
+                      {viewingBooking.userPhone && (
+                        <span className="text-muted-foreground">
+                          {" "}({viewingBooking.userPhone})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Booked At
+                  </p>
+                  <p className="font-medium">
+                    {formatDate(viewingBooking.bookedAt)}
+                  </p>
+                </div>
+
+                {viewingBooking.status === 'PENDING' && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Expires At
+                    </p>
+                    <p className="font-medium">
+                      {formatDate(viewingBooking.expiresAt)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {viewingBookingDetails && viewingBookingDetails.seats && viewingBookingDetails.seats.length > 0 && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Seat Details
+                  </p>
+                  <div className="bg-muted rounded-lg p-3">
+                    {viewingBookingDetails.seats.map((seat, index) => (
+                      <div key={index} className="flex justify-between text-sm">
+                        <span>Seat ID: {seat.seatId}</span>
+                        <span>{formatPrice(seat.seatPrice)}</span>
+                      </div>
+                    ))}
+                    <div className="border-t mt-2 pt-2 flex justify-between font-medium">
+                      <span>Total</span>
+                      <span>{formatPrice(viewingBooking.totalAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
