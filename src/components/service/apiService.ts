@@ -183,14 +183,23 @@ export const serverAPI = {
         }
 
         try {
-            return await apiClient.get<Performance[]>(
+            const backendResponse = await apiClient.get<PerformanceResponse[]>(
                 API_CONFIG.ENDPOINTS.PERFORMANCES
             );
+
+            if (!backendResponse || !Array.isArray(backendResponse)) {
+                throw new Error('Invalid performances data received from backend');
+            }
+
+            const transformedData = backendResponse.map(transformPerformanceData);
+
+            return transformedData;
         } catch (error) {
             console.error('Failed to fetch performances:', error);
             return [];
         }
     },
+
     async searchPerformances(searchParams: {
         name?: string;
         venue?: string;
@@ -266,6 +275,7 @@ export const serverAPI = {
             throw error;
         }
     },
+
 
     // Booking endpoints
     async getAllBookings(): Promise<Booking[]> {

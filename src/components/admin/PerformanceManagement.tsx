@@ -9,29 +9,8 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Plus, Edit, Trash2, Calendar, MapPin, Users } from 'lucide-react';
-
-interface Performance {
-  performance_id: number;
-  title: string;
-  description: string;
-  theme: string;
-  poster_url: string;
-  start_date: string;
-  end_date: string;
-  running_time: number;
-  base_price: number;
-  status: 'UPCOMING' | 'ONGOING' | 'ENDED' | 'CANCELLED';
-  venue_name: string;
-  venue_id: number;
-  total_bookings: number;
-  revenue: number;
-}
-
-interface Venue {
-  venue_id: number;
-  venue_name: string;
-  total_capacity: number;
-}
+import { Performance, PerformanceResponse, Venue } from '../type/index';
+import { serverAPI } from '../service/apiService';
 
 export function PerformanceManagement() {
   const [performances, setPerformances] = useState<Performance[]>([]);
@@ -51,68 +30,25 @@ export function PerformanceManagement() {
     venue_id: 0
   });
 
+  // 초기화
   useEffect(() => {
-    // Mock data initialization
-    setTimeout(() => {
-      setVenues([
-        { venue_id: 1, venue_name: 'Grand Opera House', total_capacity: 200 },
-        { venue_id: 2, venue_name: 'National Theater', total_capacity: 150 },
-        { venue_id: 3, venue_name: 'Arena Stadium', total_capacity: 3000 },
-        { venue_id: 4, venue_name: 'Concert Hall', total_capacity: 500 }
-      ]);
+    const fetchPerfomances = async () => {
+      try {
+        setLoading(true);
 
-      setPerformances([
-        {
-          performance_id: 1,
-          title: 'The Phantom of the Opera',
-          description: 'A haunting tale of beauty and the beast in this timeless musical masterpiece.',
-          theme: 'MUSICAL',
-          poster_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop',
-          start_date: '2024-12-01',
-          end_date: '2024-12-31',
-          running_time: 150,
-          base_price: 75000,
-          status: 'ONGOING',
-          venue_name: 'Grand Opera House',
-          venue_id: 1,
-          total_bookings: 145,
-          revenue: 10875000
-        },
-        {
-          performance_id: 2,
-          title: 'Swan Lake Ballet',
-          description: 'Experience the classic ballet with stunning choreography and beautiful music.',
-          theme: 'BALLET',
-          poster_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=600&fit=crop',
-          start_date: '2024-12-10',
-          end_date: '2024-12-25',
-          running_time: 120,
-          base_price: 65000,
-          status: 'ONGOING',
-          venue_name: 'National Theater',
-          venue_id: 2,
-          total_bookings: 78,
-          revenue: 5070000
-        },
-        {
-          performance_id: 3,
-          title: 'Rock Concert Live',
-          description: 'An electrifying rock concert featuring top bands and explosive performances.',
-          theme: 'CONCERT',
-          poster_url: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=600&fit=crop',
-          start_date: '2024-12-20',
-          end_date: '2024-12-22',
-          running_time: 180,
-          base_price: 85000,
-          status: 'UPCOMING',
-          venue_name: 'Arena Stadium',
-          venue_id: 3,
-          total_bookings: 1250,
-          revenue: 106250000
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
+        const venueData = await serverAPI.getVenues();
+        const performanceData = await serverAPI.getPerformances();
+
+        setVenues(venueData);
+        setPerformances(performanceData);
+      } catch (error) {
+        console.error('공연 데이터를 가져오는데 실패했습니다: ', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPerfomances();
   }, []);
 
   const handleCreatePerformance = () => {
@@ -133,13 +69,13 @@ export function PerformanceManagement() {
   const handleUpdatePerformance = () => {
     if (!editingPerformance) return;
 
-    setPerformances(prev => prev.map(perf => 
+    setPerformances(prev => prev.map(perf =>
       perf.performance_id === editingPerformance.performance_id
-        ? { 
-            ...perf, 
-            ...formData,
-            venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || perf.venue_name
-          }
+        ? {
+          ...perf,
+          ...formData,
+          venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || perf.venue_name
+        }
         : perf
     ));
     setEditingPerformance(null);
@@ -390,7 +326,7 @@ export function PerformanceManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Total Bookings</p>
                 <p className="text-xl font-medium">
-                  {performances.reduce((sum, p) => sum + p.total_bookings, 0).toLocaleString()}
+                  {performances.reduce((sum, p) => sum + (p.total_bookings || 0), 0).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -448,8 +384,8 @@ export function PerformanceManagement() {
                 <TableRow key={performance.performance_id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <img 
-                        src={performance.poster_url} 
+                      <img
+                        src={performance.poster_url}
                         alt={performance.title}
                         className="w-10 h-10 object-cover rounded"
                       />
@@ -474,19 +410,19 @@ export function PerformanceManagement() {
                       {performance.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{performance.total_bookings.toLocaleString()}</TableCell>
+                  <TableCell>{(performance.total_bookings || 0).toLocaleString()}</TableCell>
                   <TableCell>{formatPrice(performance.revenue)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleEditPerformance(performance)}
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleDeletePerformance(performance.performance_id)}
                       >
