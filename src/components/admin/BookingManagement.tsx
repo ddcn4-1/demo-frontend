@@ -7,7 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Search, Filter, Download, Eye, XCircle, CheckCircle, Clock } from 'lucide-react';
-import { serverAPI, Booking, mockUsers } from '../../data/mockServer';
+// import { serverAPI, Booking, mockUsers } from '../../data/mockServer';
+import { Booking, User, GetBookings200ResponseDto } from '../type/index'
+import { serverAPI } from '../service/apiService'
+import { bookingService } from '../service/bookingService'
 
 interface AdminBooking extends Booking {
   user_name: string;
@@ -33,19 +36,44 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const bookingData = await serverAPI.getAllBookings();
+        const bookingData = await bookingService.adminGetBookings();
+
+        // TODO : 이후 유저 상세 조회 API 만들어서 백엔드에서 하나만 조회하도록 변경
+        // 현재 전체 데이터 읽어와서 frontend에서 필터
+        const userData = await serverAPI.getUsers();
+        const userMap = new Map(userData.map(u => [u.userId, u]));
+
         // Convert Booking to AdminBooking by adding user data
-        const adminBookings: AdminBooking[] = bookingData.map(booking => {
-          const user = mockUsers.find(u => u.user_id === booking.user_id);
+        const adminBookings: AdminBooking[] = bookingData.bookings.map(booking => {
+          const user = userMap.get(booking.userId);
+
           return {
-            ...booking,
+            booking_id: booking.bookingId,
+            booking_number: booking.bookingNumber,
+            user_id: booking.userId,
+            performance_id: booking.scheduleId,
+            performance_title: booking.performanceTitle || 'Unknown Performance', // 기본값 추가
+            venue_name: booking.venueName || 'Unknown Venue',                    // 기본값 추가
+            show_datetime: booking.showDate || new Date().toISOString(),         // 기본값 추가
+            seat_count: booking.seatCount || 0,                                  // 기본값 추가
+            seats: booking.seatCode ? [{
+              seat_id: 1,
+              seat_row: booking.seatZone || '',
+              seat_number: booking.seatCode || '',
+              seat_grade: booking.seatZone || 'General',
+              seat_price: booking.totalAmount || 0
+            }] : [],
+            total_amount: booking.totalAmount || 0,                              // 기본값 추가
+            status: booking.status,
+            booked_at: booking.bookedAt || new Date().toISOString(),            // 기본값 추가
+
             user_name: user?.name || 'Unknown User',
             user_email: user?.email || 'unknown@email.com',
-            payment_status: booking.status === 'CONFIRMED' ? 'COMPLETED' : 
-                           booking.status === 'PENDING' ? 'PENDING' : 'COMPLETED'
+            payment_status: (booking.status === 'CONFIRMED' ? 'COMPLETED' :
+              booking.status === 'PENDING' ? 'PENDING' : 'COMPLETED') as 'PENDING' | 'COMPLETED' | 'FAILED'
           };
         });
-        
+
         setBookings(adminBookings);
         setFilteredBookings(adminBookings);
       } catch (error) {
@@ -63,7 +91,7 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(booking => 
+      filtered = filtered.filter(booking =>
         booking.booking_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.user_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -86,8 +114,8 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
 
   const handleCancelBooking = (bookingId: number) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
-      setBookings(prev => prev.map(booking => 
-        booking.booking_id === bookingId 
+      setBookings(prev => prev.map(booking =>
+        booking.booking_id === bookingId
           ? { ...booking, status: 'CANCELLED' as const }
           : booking
       ));
@@ -95,8 +123,8 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
   };
 
   const handleConfirmBooking = (bookingId: number) => {
-    setBookings(prev => prev.map(booking => 
-      booking.booking_id === bookingId 
+    setBookings(prev => prev.map(booking =>
+      booking.booking_id === bookingId
         ? { ...booking, status: 'CONFIRMED' as const, payment_status: 'COMPLETED' as const }
         : booking
     ));
@@ -369,8 +397,8 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
                     <div className="flex gap-1">
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => setSelectedBooking(booking)}
                           >
@@ -406,7 +434,7 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
                                   </Badge>
                                 </div>
                               </div>
-                              
+
                               <div>
                                 <p className="text-sm text-muted-foreground mb-2">Seat Details</p>
                                 <div className="bg-muted rounded-lg p-3">
@@ -428,8 +456,8 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
                       </Dialog>
 
                       {booking.status === 'PENDING' && (
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleConfirmBooking(booking.booking_id)}
                         >
@@ -438,8 +466,8 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
                       )}
 
                       {booking.status !== 'CANCELLED' && (
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleCancelBooking(booking.booking_id)}
                         >

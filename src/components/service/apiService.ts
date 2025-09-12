@@ -110,7 +110,7 @@ class ApiClient {
             body: data ? JSON.stringify(data) : undefined,
         });
     }
-    
+
     async patch<T>(endpoint: string, data?: any): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'PATCH',
@@ -252,10 +252,10 @@ export const serverAPI = {
     async getPerformanceSchedules(performanceId: number): Promise<{ schedules: ScheduleResponse[] }> {
         try {
             console.log('API - Requesting schedules for performance ID:', performanceId);
-            
+
             const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}/schedules`;
             const response = await apiClient.get<{ schedules: ScheduleResponse[] }>(endpoint);
-            
+
             console.log('API - Schedules response:', response);
             return response;
         } catch (error) {
@@ -279,6 +279,17 @@ export const serverAPI = {
             );
         } catch (error) {
             console.error('Failed to fetch bookings:', error);
+            return [];
+        }
+    },
+
+    async getAdminAllBookings(): Promise<Booking[]> {
+        try {
+            return await apiClient.get<Booking[]>(
+                API_CONFIG.ENDPOINTS.ADMIN_BOOKINGS
+            );
+        } catch (error) {
+            console.error('Failed to fetch admin bookings:', error);
             return [];
         }
     },
