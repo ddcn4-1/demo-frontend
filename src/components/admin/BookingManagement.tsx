@@ -41,7 +41,7 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
         // TODO : 이후 유저 상세 조회 API 만들어서 백엔드에서 하나만 조회하도록 변경
         // 현재 전체 데이터 읽어와서 frontend에서 필터
         const userData = await serverAPI.getUsers();
-        const userMap = new Map(userData.map(u => [u.userId, u]));
+        const userMap = new Map(userData.map(u => [u.user_id, u]));
 
         // Convert Booking to AdminBooking by adding user data
         const adminBookings: AdminBooking[] = bookingData.bookings.map(booking => {

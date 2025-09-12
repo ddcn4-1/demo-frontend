@@ -7,6 +7,7 @@ import {
     Seat,
     Venue,
     SystemMetrics,
+    UserResponse,
 } from '../type/index';
 import { API_CONFIG, shouldUseMock } from '../../config/api.config';
 import { serverAPI as mockAPI } from '../../data/mockServer';
@@ -152,6 +153,23 @@ const transformPerformanceData = (
             total_seats: schedule.totalSeats,
             status: schedule.status,
         })),
+    };
+
+    return transformed;
+};
+
+// user data transform util function
+const transformUserData = (
+    response: UserResponse
+): User => {
+    const transformed: User = {
+        user_id: response.userId,
+        username: response.username,
+        email: response.email,
+        name: response.name,
+        phone: response.phone,
+        role: response.role,
+        status: response.status
     };
 
     return transformed;
@@ -377,7 +395,15 @@ export const serverAPI = {
         }
 
         try {
-            return await apiClient.get<User[]>(API_CONFIG.ENDPOINTS.USERS);
+            const backendResponse = await apiClient.get<UserResponse[]>(API_CONFIG.ENDPOINTS.USERS);
+
+            if (!backendResponse || !Array.isArray(backendResponse)) {
+                throw new Error('Invalid users data received from backend');
+            }
+
+            const transformedData = backendResponse.map(transformUserData);
+
+            return transformedData;
         } catch (error) {
             console.error('Failed to fetch users:', error);
             return [];
