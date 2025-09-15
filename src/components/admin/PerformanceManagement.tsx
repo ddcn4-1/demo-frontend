@@ -9,7 +9,7 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Plus, Edit, Trash2, Calendar, MapPin, Users } from 'lucide-react';
-import { Performance, PerformanceResponse, Venue } from '../type/index';
+import { Performance, Venue } from '../type/index';
 import { serverAPI } from '../service/apiService';
 
 export function PerformanceManagement() {
@@ -51,19 +51,36 @@ export function PerformanceManagement() {
     fetchPerfomances();
   }, []);
 
-  const handleCreatePerformance = () => {
-    const newPerformance: Performance = {
-      performance_id: Date.now(),
-      ...formData,
-      status: 'UPCOMING' as const,
-      venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || '',
-      total_bookings: 0,
-      revenue: 0
-    };
+  const handleCreatePerformance = async () => {
+    try {
+      setLoading(true);
 
-    setPerformances(prev => [...prev, newPerformance]);
-    setShowCreateDialog(false);
-    resetForm();
+      const newPerformance = await serverAPI.createPerformance({
+        venueId: formData.venue_id,
+        title: formData.title,
+        description: formData.description,
+        theme: formData.theme,
+        posterUrl: formData.poster_url,
+        basePrice: formData.base_price,
+        startDate: formData.start_date,
+        endDate: formData.end_date,
+        runningTime: formData.running_time,
+        status: "UPCOMING"
+      });
+
+      if (newPerformance !== undefined) {
+        setPerformances(prev => [...prev, newPerformance]);
+        setShowCreateDialog(false);
+        resetForm();
+        console.log('공연 생성 성공');
+      } else {
+        throw new Error('공연 생성 실패');
+      }
+    } catch (error) {
+      console.error('공연 생성 실패: ', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdatePerformance = () => {

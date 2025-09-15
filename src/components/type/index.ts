@@ -24,10 +24,21 @@ export interface UserResponse {
 
 export interface Venue {
   venue_id: number;
-  name: string;
+  venue_name: string;
   address: string;
-  city: string;
+  description: string;
+  contact: string;
   total_capacity: number;
+  created_at: string;
+}
+
+export interface VenueResponse {
+  venueId: number;
+  venueName: string;
+  address: string;
+  description: string;
+  contact: string;
+  totalCapacity: number;
   created_at: string;
 }
 
@@ -62,6 +73,32 @@ export interface Performance {
     total_seats: number;
     status: string;
   }>;
+}
+
+export interface PerformanceRequest {
+  venueId: number;
+  title: string;
+  description: string;
+  theme: string;
+  posterUrl: string;
+  basePrice: number;
+  startDate: string;
+  endDate: string;
+  runningTime: number;
+  status:
+  | 'UPCOMING'
+  | 'ONGOING'
+  | 'ENDED'
+  | 'CANCELLED'
+  | 'SCHEDULED'
+  | 'COMPLETED';
+  // schedules: Array<{
+  //   schedule_id: number;
+  //   show_datetime: string;
+  //   available_seats: number;
+  //   total_seats: number;
+  //   status: string;
+  // }>;
 }
 
 export interface PerformanceResponse {

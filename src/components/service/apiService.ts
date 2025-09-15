@@ -8,6 +8,8 @@ import {
     Venue,
     SystemMetrics,
     UserResponse,
+    VenueResponse,
+    PerformanceRequest,
 } from '../type/index';
 import { API_CONFIG, shouldUseMock } from '../../config/api.config';
 import { serverAPI as mockAPI } from '../../data/mockServer';
@@ -175,6 +177,23 @@ const transformUserData = (
     return transformed;
 };
 
+// user data transform util function
+const transformVenueData = (
+    response: VenueResponse
+): Venue => {
+    const transformed: Venue = {
+        venue_id: response.venueId,
+        venue_name: response.venueName,
+        address: response.address,
+        description: response.description,
+        contact: response.contact,
+        total_capacity: response.totalCapacity,
+        created_at: response.created_at
+    };
+
+    return transformed;
+};
+
 export const apiClient = new ApiClient(API_CONFIG.BASE_URL, API_CONFIG.TIMEOUT);
 
 
@@ -294,6 +313,16 @@ export const serverAPI = {
         }
     },
 
+    async createPerformance(performanceData: PerformanceRequest): Promise<Performance | undefined> {
+        try {
+            const response = await apiClient.post<PerformanceResponse>(API_CONFIG.ENDPOINTS.PERFORMANCES, performanceData);
+
+            return transformPerformanceData(response);
+        } catch (error) {
+            console.error('Failed to create performance: ', error);
+            return undefined;
+        }
+    },
 
     // Booking endpoints
     async getAllBookings(): Promise<Booking[]> {
@@ -472,7 +501,15 @@ export const serverAPI = {
         }
 
         try {
-            return await apiClient.get<Venue[]>(API_CONFIG.ENDPOINTS.VENUES);
+            const backendResponse = await apiClient.get<VenueResponse[]>(API_CONFIG.ENDPOINTS.VENUES);
+
+            if (!backendResponse || !Array.isArray(backendResponse)) {
+                throw new Error('Invalid venues data received from backend');
+            }
+
+            const transformedData = backendResponse.map(transformVenueData);
+
+            return transformedData;
         } catch (error) {
             console.error('Failed to fetch venues:', error);
             return [];
