@@ -48,11 +48,11 @@ export interface Performance {
   description?: string;
   venue: string;
   venue_name?: string; // alias for venue
-  venue_id?: number;
+  venue_id: number;
   theme: string;
   poster_url: string;
   price: number;
-  base_price?: number; // alias for price
+  base_price: number; // alias for price
   status:
   | 'UPCOMING'
   | 'ONGOING'
@@ -119,6 +119,7 @@ export interface PerformanceResponse {
   endDate: string;
   runningTime: number;
   venueAddress: string;
+  venueId: number;
   description?: string;
   schedules: Array<{
     scheduleId: number;

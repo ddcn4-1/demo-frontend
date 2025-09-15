@@ -146,6 +146,7 @@ const transformPerformanceData = (
         end_date: response.endDate,
         running_time: response.runningTime,
         venue_address: response.venueAddress,
+        venue_id: response.venueId,
 
         // 스케줄 변환
         schedules: response.schedules.map((schedule) => ({
@@ -324,9 +325,24 @@ export const serverAPI = {
         }
     },
 
+    async updatePerformance(performanceId: number, performanceData: PerformanceRequest): Promise<Performance | undefined> {
+        try {
+            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`
+            const response = await apiClient.put<PerformanceResponse>(endpoint, performanceData);
+
+            console.log(response);
+            return transformPerformanceData(response);
+        } catch (error) {
+            console.error('Failed to update performance: ', error);
+            return undefined;
+        }
+    },
+
     async deletePerformance(performanceId: number): Promise<boolean> {
         try {
-            await apiClient.delete(`${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`);
+            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`
+            await apiClient.delete(endpoint);
+
             return true;
         } catch (error) {
             console.error('Failed to delete performance: ', error);

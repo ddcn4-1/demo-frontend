@@ -9,7 +9,7 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Plus, Edit, Trash2, Calendar, MapPin, Users } from 'lucide-react';
-import { Performance, Venue } from '../type/index';
+import { Performance, PerformanceRequest, Venue } from '../type/index';
 import { serverAPI } from '../service/apiService';
 
 export function PerformanceManagement() {
@@ -83,20 +83,53 @@ export function PerformanceManagement() {
     }
   };
 
-  const handleUpdatePerformance = () => {
+  const handleUpdatePerformance = async () => {
     if (!editingPerformance) return;
 
-    setPerformances(prev => prev.map(perf =>
-      perf.performance_id === editingPerformance.performance_id
-        ? {
-          ...perf,
-          ...formData,
-          venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || perf.venue_name
-        }
-        : perf
-    ));
-    setEditingPerformance(null);
-    resetForm();
+    try {
+      setLoading(true);
+
+      const updateRequestBody: PerformanceRequest = {
+        venueId: formData.venue_id,
+        title: formData.title,
+        description: formData.description || '',
+        theme: formData.theme,
+        posterUrl: formData.poster_url,
+        basePrice: formData.base_price,
+        startDate: formData.start_date,
+        endDate: formData.end_date,
+        runningTime: formData.running_time,
+        status: editingPerformance.status
+      }
+
+      const updatedPerformance = await serverAPI.updatePerformance(editingPerformance.performance_id, updateRequestBody);
+
+      if (updatedPerformance !== undefined) {
+
+        setPerformances(prev => prev.map(perf =>
+          perf.performance_id === updatedPerformance.performance_id
+            ? {
+              ...perf,
+              ...formData,
+              venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || perf.venue_name
+            }
+            : perf
+        ));
+
+        setEditingPerformance(null);
+        resetForm();
+
+        console.log('공연 수정 성공');
+
+      } else {
+        throw new Error('공연 수정 실패');
+      }
+    } catch (error) {
+      console.error('공연 수정 실패: ', error);
+    } finally {
+      setLoading(false);
+    }
+
   };
 
   const handleDeletePerformance = async (id: number) => {
@@ -125,9 +158,10 @@ export function PerformanceManagement() {
 
   const handleEditPerformance = (performance: Performance) => {
     setEditingPerformance(performance);
+
     setFormData({
       title: performance.title,
-      description: performance.description,
+      description: performance.description || '',
       theme: performance.theme,
       poster_url: performance.poster_url,
       start_date: performance.start_date,
@@ -201,11 +235,11 @@ export function PerformanceManagement() {
               <SelectValue placeholder="Select theme" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="MUSICAL">Musical</SelectItem>
-              <SelectItem value="BALLET">Ballet</SelectItem>
-              <SelectItem value="CONCERT">Concert</SelectItem>
-              <SelectItem value="OPERA">Opera</SelectItem>
-              <SelectItem value="THEATER">Theater</SelectItem>
+              <SelectItem value="Musical">Musical</SelectItem>
+              <SelectItem value="Ballet">Ballet</SelectItem>
+              <SelectItem value="Concert">Concert</SelectItem>
+              <SelectItem value="Opera">Opera</SelectItem>
+              <SelectItem value="Theater">Theater</SelectItem>
             </SelectContent>
           </Select>
         </div>
