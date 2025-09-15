@@ -324,6 +324,16 @@ export const serverAPI = {
         }
     },
 
+    async deletePerformance(performanceId: number): Promise<boolean> {
+        try {
+            await apiClient.delete(`${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`);
+            return true;
+        } catch (error) {
+            console.error('Failed to delete performance: ', error);
+            return false;
+        }
+    },
+
     // Booking endpoints
     async getAllBookings(): Promise<Booking[]> {
         if (shouldUseMock('BOOKINGS')) {

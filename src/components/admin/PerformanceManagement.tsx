@@ -99,9 +99,27 @@ export function PerformanceManagement() {
     resetForm();
   };
 
-  const handleDeletePerformance = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this performance?')) {
-      setPerformances(prev => prev.filter(perf => perf.performance_id !== id));
+  const handleDeletePerformance = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this performance?')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const success = await serverAPI.deletePerformance(id);
+
+      if (success) {
+        setPerformances(prev => prev.filter(perf => perf.performance_id !== id));
+        console.log('공연 삭제 성공');
+
+      } else {
+        throw new Error('공연 삭제 실패');
+      }
+    } catch (error) {
+      console.error('공연 삭제 실패: ', error);
+    } finally {
+      setLoading(false);
     }
   };
 
