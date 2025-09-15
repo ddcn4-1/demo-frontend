@@ -24,4 +24,9 @@ export const venueService = {
   async deleteVenue(venueId: number): Promise<void> {
     return apiClient.delete<void>(`/api/venues/${venueId}`);
   },
+
+  // Fetch venue seatmap JSON
+  async getSeatMap<T = unknown>(venueId: number): Promise<T> {
+    return apiClient.get<T>(`/api/venues/${venueId}/seatmap`);
+  },
 };

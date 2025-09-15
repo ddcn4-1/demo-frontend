@@ -249,6 +249,7 @@ export interface ApiResponse<T> {
     seatCode?: string; // 좌석 코드 추가
     seatZone?: string; // 좌석 구역 추가
     seatCodes?: string[]; // 여러 좌석 코드 배열
+    seats?: BookingSeatDto[]; // 목록 응답에도 좌석 상세 포함 가능
     seatCount: number;
     totalAmount: number;
     status: "PENDING" | "CONFIRMED" | "CANCELLED";
@@ -260,9 +261,16 @@ export interface ApiResponse<T> {
     updatedAt: string;
   }
   
+  export interface BookingSeatSelectorDto {
+    grade: string;
+    zone: string;
+    rowLabel: string;
+    colNum: string;
+  }
+
   export interface CreateBookingRequestDto {
     scheduleId: number;
-    seatIds: number[];
+    seats: BookingSeatSelectorDto[];
     queueToken?: string;
   }
   
@@ -425,5 +433,35 @@ export interface ApiResponse<T> {
     limit?: number;
     search?: string;
     role?: "USER" | "ADMIN";
+  }
+  
+  // Seat Map Types
+  export interface SeatMapSection {
+    cols: number;
+    rows: number;
+    zone?: string;
+    name?: string;
+    grade?: string;
+    seatStart?: number;
+    rowLabelFrom: string; // e.g., "A", "K", "AE"
+  }
+  
+  export interface SeatMapMeta {
+    totalSeats?: number;
+    seatCodeFormat?: string; // e.g., "{row}-{number}"
+    alphabet?: string; // e.g., "ABCDEFGHJKLMNPQRSTUVWXYZ" (optional skip letters)
+  }
+  
+  export interface SeatMapJson {
+    meta?: SeatMapMeta;
+    version?: number;
+    pricing?: Record<string, number>;
+    sections: SeatMapSection[];
+  }
+  
+  export interface VenueApiResponse {
+    venueId: number;
+    seatMapUrl: string;
+    seatMapJson: SeatMapJson;
   }
   

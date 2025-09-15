@@ -2,16 +2,21 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Users, X } from "lucide-react";
 import services from "./service/apiService";
 import {serverAPI} from "./service/apiService";
+import { venueService } from "./service/venueService";
 import {
   SeatDto,
   CreateBookingRequestDto,
   PerformanceResponse,
   ScheduleResponse,
   UserInfo,
+  SeatMapJson,
+  SeatMapSection,
 } from "./type/index";
+// Removed ScrollArea for simpler overflow handling
+import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
 
 interface SeatSelectionProps {
   performanceId: number;
@@ -33,10 +38,366 @@ export function SeatSelection({
   const [selectedSchedule, setSelectedSchedule] = useState<number | null>(null);
   const [seats, setSeats] = useState<SeatDto[]>([]);
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
+  const [selectedSeatCodes, setSelectedSeatCodes] = useState<string[]>([]);
+  const [selectedSeatIdsFromSelector, setSelectedSeatIdsFromSelector] = useState<number[]>([]);
+  const [occupiedSeatCodes, setOccupiedSeatCodes] = useState<Set<string>>(new Set());
+  const [selectorTotal, setSelectorTotal] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [bookingStep, setBookingStep] = useState<
     "schedule" | "seats" | "confirm"
   >("schedule");
+  const [venueId, setVenueId] = useState<number | null>(null);
+
+  type GradeKey = string;
+
+  const seatColorClasses = {
+    VIP: {
+      selected: 'bg-fuchsia-600 border-fuchsia-700 ring-fuchsia-300 text-white',
+      normal: 'bg-fuchsia-100 border-fuchsia-300 text-fuchsia-800',
+      hovered: 'bg-fuchsia-100 border-fuchsia-300 text-fuchsia-800',
+      light: 'bg-fuchsia-50',
+      labelBg: 'bg-fuchsia-100',
+      labelText: 'text-fuchsia-800',
+      labelBorder: 'border-fuchsia-300'
+    },
+    R: {
+      selected: 'bg-blue-600 border-blue-700 ring-blue-300 text-white',
+      normal: 'bg-blue-100 border-blue-300 text-blue-800',
+      hovered: 'bg-blue-100 border-blue-300 text-blue-800',
+      light: 'bg-blue-50',
+      labelBg: 'bg-blue-100',
+      labelText: 'text-blue-800',
+      labelBorder: 'border-blue-300'
+    },
+    S: {
+      selected: 'bg-emerald-600 border-emerald-700 ring-emerald-300 text-white',
+      normal: 'bg-emerald-100 border-emerald-300 text-emerald-800',
+      hovered: 'bg-emerald-100 border-emerald-300 text-emerald-800',
+      light: 'bg-emerald-50',
+      labelBg: 'bg-emerald-100',
+      labelText: 'text-emerald-800',
+      labelBorder: 'border-emerald-300'
+    },
+    A: {
+      selected: 'bg-orange-600 border-orange-700 ring-orange-300 text-white',
+      normal: 'bg-orange-100 border-orange-300 text-orange-800',
+      hovered: 'bg-orange-100 border-orange-300 text-orange-800',
+      light: 'bg-orange-50',
+      labelBg: 'bg-orange-100',
+      labelText: 'text-orange-800',
+      labelBorder: 'border-orange-300'
+    },
+  } as const;
+
+  const gradeSwatchClass: Record<string, string> = {
+    VIP: 'bg-fuchsia-600',
+    R: 'bg-blue-600',
+    S: 'bg-emerald-600',
+    A: 'bg-orange-600',
+  };
+
+  const defaultGradePrices: Record<GradeKey, number> = {
+    VIP: 150000,
+    R: 120000,
+    S: 90000,
+    Premium: 95000,
+    A: 60000,
+  };
+
+  // Seat map state must be declared before any hooks that reference it
+  const [seatMapLoading, setSeatMapLoading] = useState(false);
+  const [seatMap, setSeatMap] = useState<SeatMapJson | null>(null);
+  const [rowRemap, setRowRemap] = useState<Map<string, string>>(new Map());
+  const [selectorSelectedCodes, setSelectorSelectedCodes] = useState<Set<string>>(new Set());
+  const [hoveredSeat, setHoveredSeat] = useState<string | null>(null);
+
+  // Reset all seat selection-related states
+  const resetSelection = useCallback(() => {
+    setSelectedSeats([]);
+    setSelectedSeatCodes([]);
+    setSelectorSelectedCodes(new Set<string>());
+    setSelectedSeatIdsFromSelector([]);
+    setSelectorTotal(0);
+    setHoveredSeat(null);
+  }, []);
+
+  const gradePrices = useMemo(() => {
+    // Prefer pricing from seatMap if available
+    const pricing = seatMap?.pricing ?? undefined;
+    if (pricing && typeof pricing === 'object') {
+      return { ...defaultGradePrices, ...pricing } as Record<string, number>;
+    }
+    return defaultGradePrices as Record<string, number>;
+  }, [seatMap]);
+
+  // Excel-style alpha increment with optional custom alphabet (e.g., skip I/O)
+  function alphaToIndex(label: string, alphabet: string): number {
+    const up = label.toUpperCase();
+    const base = alphabet.length;
+    let v = 0;
+    for (let i = 0; i < up.length; i++) {
+      const ch = up.charAt(i);
+      const pos = alphabet.indexOf(ch);
+      if (pos < 0) throw new Error(`Invalid row label: ${label}`);
+      v = v * base + (pos + 1);
+    }
+    return v - 1; // zero-based
+  }
+
+  function indexToAlpha(index: number, alphabet: string): string {
+    const base = alphabet.length;
+    let v = index + 1; // one-based
+    let out = "";
+    while (v > 0) {
+      const rem = (v - 1) % base;
+      out = alphabet.charAt(rem) + out;
+      v = Math.floor((v - 1) / base);
+    }
+    return out;
+  }
+
+  function generateRowLabel(startLabel: string, offset: number): string {
+    const alphabet = seatMap?.meta?.alphabet?.toUpperCase() || "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const startIndex = alphaToIndex(startLabel, alphabet);
+    const targetIndex = startIndex + offset;
+    return indexToAlpha(targetIndex, alphabet);
+  }
+
+  const resolveSeatGrade = useCallback((seatId: string, sections: SeatMapSection[]): GradeKey | undefined => {
+    const rowLabel = seatId.split('-')[0];
+    for (const sec of sections) {
+      for (let r = 0; r < sec.rows; r++) {
+        const label = generateRowLabel(sec.rowLabelFrom, r);
+        if (label === rowLabel) return (sec.grade as GradeKey) || 'A';
+      }
+    }
+    return undefined;
+  }, []);
+
+  const findSectionForSeat = useCallback((rowLabel: string, col: number, sections: SeatMapSection[]): SeatMapSection | undefined => {
+    for (const sec of sections) {
+      for (let r = 0; r < sec.rows; r++) {
+        const label = generateRowLabel(sec.rowLabelFrom, r);
+        if (label === rowLabel) {
+          const start = sec.seatStart ?? 1;
+          const end = start + sec.cols - 1;
+          if (col >= start && col <= end) return sec;
+        }
+      }
+    }
+    return undefined;
+  }, []);
+
+  // Fetch seat map when venueId becomes available
+  useEffect(() => {
+    let didCancel = false;
+    const fetchSeatMap = async () => {
+      if (!venueId) return;
+      setSeatMapLoading(true);
+      try {
+        // Accept both wrapped response ({ seatMapJson }) and plain seatmap JSON
+        const data = await venueService.getSeatMap<any>(venueId);
+        if (!didCancel) {
+          let resolved: any = data;
+          if (data && typeof data === 'object') {
+            if ('seatMapJson' in data) {
+              resolved = (data as any).seatMapJson;
+            } else if ('data' in data && (data as any).data?.seatMapJson) {
+              resolved = (data as any).data.seatMapJson;
+            } else if ('data' in data && (data as any).data?.sections) {
+              resolved = (data as any).data;
+            }
+          }
+          if (resolved && Array.isArray(resolved.sections)) {
+            setSeatMap(resolved as SeatMapJson);
+          } else {
+            setSeatMap({ sections: [] });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load seatmap', e);
+        if (!didCancel) setSeatMap({ sections: [] });
+      } finally {
+        if (!didCancel) setSeatMapLoading(false);
+      }
+    };
+    fetchSeatMap();
+    return () => {
+      didCancel = true;
+    };
+  }, [venueId]);
+
+  // Build row remap between backend rows and seatmap labels
+  useEffect(() => {
+    try {
+      if (!seatMap || !seatMap.sections || seats.length === 0) return;
+      const labels: string[] = [];
+      for (const sec of seatMap.sections) {
+        for (let r = 0; r < sec.rows; r++) labels.push(generateRowLabel(sec.rowLabelFrom, r));
+      }
+      const uniqueSeatRows: string[] = Array.from(
+        new Set(seats.map((s) => String(s.seatRow).trim().toUpperCase()))
+      );
+      const numericRows = uniqueSeatRows
+        .map(v => (/^\d+$/.test(v) ? Number(v) : NaN))
+        .filter(n => !isNaN(n))
+        .sort((a,b) => a-b);
+      const remap = new Map<string, string>();
+      if (numericRows.length > 0) {
+        numericRows.forEach((num, idx) => {
+          const label = labels[idx];
+          if (label) remap.set(String(num), label);
+        });
+      }
+      setRowRemap(remap);
+    } catch (e) {
+      console.warn('Failed to compute row remap', e);
+      setRowRemap(new Map());
+    }
+  }, [seatMap, seats]);
+
+  // Convert backend seat to display code (ROW-NUMBER) respecting remap
+  const seatToCode = useCallback((s: SeatDto) => {
+    const rawRow = String(s.seatRow).trim().toUpperCase();
+    const mapped = rowRemap.get(rawRow);
+    const rowLabel = mapped ?? (() => {
+      const letters = rawRow.match(/[A-Z]+/g);
+      const digitsInRow = rawRow.match(/\d+/g);
+      return letters && letters.length > 0 ? letters[letters.length - 1] : (digitsInRow ? String(parseInt(digitsInRow[0], 10)) : rawRow);
+    })();
+    const parsed = parseInt(String(s.seatNumber).trim(), 10);
+    const numLabel = isNaN(parsed) ? String(s.seatNumber) : String(parsed);
+    return `${rowLabel}-${numLabel}`;
+  }, [rowRemap]);
+
+  // Keep occupied codes in sync when seats or remap change
+  useEffect(() => {
+    try {
+      const occ = new Set<string>();
+      for (const s of seats) {
+        const status = s.status?.toString().toUpperCase();
+        if (status && status !== 'AVAILABLE') occ.add(seatToCode(s));
+      }
+      setOccupiedSeatCodes(occ);
+    } catch (e) {
+      console.warn('Failed to compute occupied seats', e);
+      setOccupiedSeatCodes(new Set());
+    }
+  }, [seats, seatToCode]);
+
+  const handleSelectorSeatClick = (seatId: string) => {
+    if (occupiedSeatCodes.has(seatId)) return;
+    const next = new Set(selectorSelectedCodes);
+    if (next.has(seatId)) {
+      next.delete(seatId);
+    } else {
+      if (next.size >= 4) {
+        alert(`최대 4개의 좌석까지 선택 가능합니다.`);
+        return;
+      }
+      next.add(seatId);
+    }
+    setSelectorSelectedCodes(next);
+  };
+
+  // Keep external selected codes and totals in sync with selector state
+  useEffect(() => {
+    const selectedSeatsArray = Array.from(selectorSelectedCodes) as string[];
+    const amount = selectedSeatsArray.reduce((sum: number, seatId: string) => {
+      const grade = resolveSeatGrade(seatId, seatMap?.sections ?? []);
+      return sum + (grade ? (gradePrices[grade] ?? 0) : 0);
+    }, 0);
+    setSelectedSeatCodes(selectedSeatsArray);
+    setSelectorTotal(amount);
+    // Map codes to IDs when we have backend seats
+    const map = new Map<string, number>();
+    seats.forEach((s) => map.set(seatToCode(s), s.seatId));
+    const ids = selectedSeatsArray
+      .map((code) => {
+        return map.get(String(code));
+      })
+      .filter((v): v is number => typeof v === 'number');
+    setSelectedSeatIdsFromSelector(ids);
+  }, [selectorSelectedCodes, seatMap, seats, resolveSeatGrade, seatToCode]);
+
+  const renderSection = (section: SeatMapSection, sectionIndex: number) => {
+    const nodes: React.ReactNode[] = [];
+    const seatStart = section.seatStart ?? 1;
+    const grade = section.grade ?? 'A';
+
+    for (let row = 0; row < section.rows; row++) {
+      const rowLabel = generateRowLabel(section.rowLabelFrom, row);
+      const rowSeats: React.ReactNode[] = [];
+      for (let col = 0; col < section.cols; col++) {
+        const seatNumber = seatStart + col;
+        const seatId = `${rowLabel}-${seatNumber}`;
+        const isSelected = selectorSelectedCodes.has(seatId);
+        const isOccupied = occupiedSeatCodes.has(seatId);
+        const isHovered = hoveredSeat === seatId;
+
+        const baseClasses = 'relative w-8 h-8 m-1 rounded-md border transition-colors text-xs font-medium flex items-center justify-center';
+        let seatClasses;
+        if (isOccupied) {
+          seatClasses = `${baseClasses} bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed`;
+        } else if (isSelected) {
+          seatClasses = `${baseClasses} bg-blue-600 border-blue-600 text-white`;
+        } else {
+          seatClasses = `${baseClasses} bg-gray-100 border-gray-300 text-gray-800 hover:bg-gray-200`;
+        }
+
+        rowSeats.push(
+          <Tooltip key={seatId}>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => handleSelectorSeatClick(seatId)}
+                onMouseEnter={() => setHoveredSeat(seatId)}
+                onMouseLeave={() => setHoveredSeat(null)}
+                disabled={isOccupied}
+                className={seatClasses + ' !w-8 !h-8 !p-0'}
+              >
+                {isOccupied ? (
+                  <X className="w-4 h-4 text-gray-600" />
+                ) : (
+                  <span className={`text-xs font-medium ${isSelected ? 'text-white' : ''}`}>
+                    {seatNumber}
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {seatId} · {grade}석 · ₩{(gradePrices[grade] ?? 0).toLocaleString()}
+            </TooltipContent>
+          </Tooltip>
+        );
+      }
+
+      nodes.push(
+        <div key={rowLabel} className="flex items-center justify-center mb-1">
+          <span className={`text-xs font-medium w-8 text-center mr-2 rounded-sm py-0.5 px-1 border border-gray-300 text-black`}>
+            {rowLabel}
+          </span>
+          <div className="flex gap-1">{rowSeats}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={sectionIndex} className="mb-6">
+        {(section.name || section.grade) && (
+          <div className="w-full flex justify-center mt-2 mb-4">
+            <div className="px-3 py-1.5 rounded-full bg-gray-100 border border-gray-200">
+              <span className="text-sm font-medium text-gray-700">
+                {section.name ?? 'Section'}{section.grade ? ` (${section.grade}석)` : ''}
+              </span>
+            </div>
+          </div>
+        )}
+        <div className="flex flex-col items-center">{nodes}</div>
+      </div>
+    );
+  };
 
   // Load performance data and schedules on component mount
   useEffect(() => {
@@ -61,6 +422,21 @@ export function SeatSelection({
       );
       console.log("Performance data:", performanceData);
       setPerformance(performanceData);
+
+      // Try resolve venueId from performance or venue list
+      try {
+        const maybeVenueId = (performanceData as any).venue_id ?? (performanceData as any).venueId;
+        if (maybeVenueId) {
+          setVenueId(Number(maybeVenueId));
+        } else if ((performanceData as any).venue || (performanceData as any).venue_name) {
+          const venueName = (performanceData as any).venue || (performanceData as any).venue_name;
+          const venues = await services.venue.getAllVenues();
+          const matched = venues.find((v: any) => v.venueName === venueName);
+          if (matched?.venueId) setVenueId(matched.venueId);
+        }
+      } catch (e) {
+        console.warn("Failed to resolve venueId", e);
+      }
 
       // Load schedules for this performance
       console.log("Fetching performance schedules...");
@@ -103,15 +479,44 @@ export function SeatSelection({
     }
   };
 
+  const normalizeSeatCode = (row: string | number, num: string | number) => {
+    const rawRow = String(row).trim().toUpperCase();
+    const letters = rawRow.match(/[A-Z]+/g);
+    const digitsInRow = rawRow.match(/\d+/g);
+    // Prefer the last letter group as the row label (e.g., "VIP-A" -> "A", "ROW A" -> "A")
+    const rowLabel = letters && letters.length > 0 ? letters[letters.length - 1] : (digitsInRow ? String(parseInt(digitsInRow[0], 10)) : rawRow);
+
+    const rawNum = String(num).trim();
+    const parsed = parseInt(rawNum, 10);
+    const numLabel = isNaN(parsed) ? rawNum : String(parsed);
+    return `${rowLabel}-${numLabel}`;
+  };
+
   const loadSeats = async (scheduleId: number) => {
     console.log("loadSeats called with scheduleId:", scheduleId);
     setLoading(true);
     try {
+      // Clear any previous selection when loading seats for a new schedule
+      resetSelection();
       // Get seat availability for the selected schedule
       console.log("Fetching seats for schedule:", scheduleId);
       const seatResponse = await services.seat.getScheduleSeats(scheduleId);
       console.log("Seat response received:", seatResponse);
       setSeats(seatResponse.data.seats);
+      // Build occupied code set for seat map selector
+      try {
+        const occ = new Set<string>();
+        for (const s of seatResponse.data.seats) {
+          const status = s.status?.toString().toUpperCase();
+          if (status && status !== "AVAILABLE") {
+            occ.add(normalizeSeatCode(s.seatRow, s.seatNumber));
+          }
+        }
+        setOccupiedSeatCodes(occ);
+      } catch (e) {
+        console.warn("Failed to compute occupied seats", e);
+        setOccupiedSeatCodes(new Set());
+      }
       console.log("Setting booking step to seats");
       setBookingStep("seats");
     } catch (error) {
@@ -126,6 +531,7 @@ export function SeatSelection({
     console.log("handleScheduleSelect called with:", scheduleId);
     const id = parseInt(scheduleId);
     console.log("Parsed schedule ID:", id);
+    resetSelection();
     setSelectedSchedule(id);
     loadSeats(id);
   };
@@ -178,12 +584,31 @@ export function SeatSelection({
     [seats]
   );
 
+  // Keep selectedSeatIdsFromSelector in sync when seat list or codes change
+  useEffect(() => {
+    if (!selectedSeatCodes || selectedSeatCodes.length === 0 || seats.length === 0) return;
+    const map = new Map<string, number>();
+    seats.forEach((s) => map.set(normalizeSeatCode(s.seatRow, s.seatNumber), s.seatId));
+    const ids = selectedSeatCodes
+      .map((code) => {
+        const [row, num] = String(code).split('-');
+        return map.get(normalizeSeatCode(row ?? '', num ?? ''));
+      })
+      .filter((v): v is number => typeof v === 'number');
+    setSelectedSeatIdsFromSelector(ids);
+  }, [selectedSeatCodes, seats]);
+
   const totalPrice = useMemo(() => {
-    return selectedSeats.reduce((total: number, seatId: number) => {
-      const seat = seats.find((s: SeatDto) => s.seatId === seatId);
-      return total + (seat?.price || 0);
-    }, 0);
-  }, [selectedSeats, seats]);
+    // Prefer selectorTotal if using new selector
+    if (selectedSeatCodes.length > 0) return selectorTotal;
+    if (selectedSeats.length > 0) {
+      return selectedSeats.reduce((total: number, seatId: number) => {
+        const seat = seats.find((s: SeatDto) => s.seatId === seatId);
+        return total + (seat?.price || 0);
+      }, 0);
+    }
+    return 0;
+  }, [selectedSeats, selectedSeatCodes, selectorTotal, seats]);
 
   // 좌석 데이터에서 동적으로 행 추출 및 정렬
   const seatRows = useMemo(() => {
@@ -237,7 +662,8 @@ export function SeatSelection({
     console.log("저장된 토큰:", token ? "있음" : "없음");
     console.log("토큰 길이:", token?.length || 0);
     console.log("선택된 스케줄:", selectedSchedule);
-    console.log("선택된 좌석:", selectedSeats);
+    console.log("선택된 좌석 seatIds:", selectedSeats);
+    console.log("선택된 좌석 seatCodes:", selectedSeatCodes);
 
     if (!token) {
       alert("로그인이 필요합니다. 다시 로그인해주세요.");
@@ -246,18 +672,82 @@ export function SeatSelection({
 
     setLoading(true);
     try {
+      // Build booking seats from selected seat codes and seatMap sections
+      if (!seatMap || !Array.isArray(seatMap.sections) || seatMap.sections.length === 0) {
+        alert('좌석 지도가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+      const codes = selectedSeatCodes.length > 0
+        ? selectedSeatCodes
+        : Array.from(selectorSelectedCodes);
+      if (codes.length === 0) {
+        alert('좌석을 선택해주세요.');
+        return;
+      }
+
+      // Prefer zone/grade from backend seats if available to avoid section overlap issues
+      const codeToSeat = new Map<string, SeatDto>();
+      seats.forEach((s) => codeToSeat.set(seatToCode(s), s));
+
+      const seatsPayload = codes.map((code) => {
+        const [rowLabelRaw, colRaw] = String(code).split('-');
+        const rowLabel = String(rowLabelRaw ?? '').trim();
+        const colNumStr = String(colRaw ?? '').trim();
+        const fromSeat = codeToSeat.get(code);
+        return {
+          grade: String(fromSeat?.seatGrade ?? ''),
+          zone: String(fromSeat?.seatZone ?? ''),
+          rowLabel,
+          colNum: colNumStr,
+        };
+      });
+
+      const queueToken = localStorage.getItem('queueToken') || undefined;
       const bookingRequest: CreateBookingRequestDto = {
         scheduleId: selectedSchedule,
-        seatIds: selectedSeats,
+        seats: seatsPayload,
+        queueToken,
       };
 
       console.log("예약 요청 데이터:", bookingRequest);
       const bookingResponse = await services.booking.createBooking(bookingRequest);
       console.log("예약 응답:", bookingResponse);
 
-      alert(
-        `Booking confirmed! Booking number: ${bookingResponse.bookingNumber}`
-      );
+      // Store local override for expiration: 10 minutes from now if pending
+      try {
+        const status = String(bookingResponse.status || '').toUpperCase();
+        if (status === 'PENDING' && bookingResponse.bookingNumber) {
+          const key = 'bookingExpiresOverrides';
+          const raw = localStorage.getItem(key);
+          const map = raw ? JSON.parse(raw) : {};
+          map[bookingResponse.bookingNumber] = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+          localStorage.setItem(key, JSON.stringify(map));
+        }
+      } catch (e) {
+        console.warn('Failed to persist booking expiration override', e);
+      }
+
+      // Persist selected seat codes for this booking (for display when backend doesn't return seatCodes)
+      try {
+        if (bookingResponse.bookingNumber) {
+          const key = 'bookingSeatCodes';
+          const raw = localStorage.getItem(key);
+          const map = raw ? JSON.parse(raw) : {};
+          const codesToPersist = (selectedSeatCodes.length > 0
+            ? selectedSeatCodes
+            : Array.from(selectorSelectedCodes)) as string[];
+          if (Array.isArray(codesToPersist) && codesToPersist.length > 0) {
+            map[bookingResponse.bookingNumber] = codesToPersist;
+            localStorage.setItem(key, JSON.stringify(map));
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to persist booking seat codes', e);
+      }
+
+      alert(`Booking confirmed! Booking number: ${bookingResponse.bookingNumber}`);
+      // Clear current selection after booking completes
+      resetSelection();
       onComplete();
     } catch (error) {
       console.error("Failed to create booking:", error);
@@ -271,51 +761,16 @@ export function SeatSelection({
         setSeats(seatResponse.data.seats);
         // 선택된 좌석 초기화 (상태가 변경되었을 수 있으므로)
         setSelectedSeats([]);
+        setSelectedSeatCodes([]);
+        setSelectedSeatIdsFromSelector([]);
       } catch (refreshError) {
         console.error("좌석 상태 재조회 실패:", refreshError);
       }
     } finally {
       setLoading(false);
     }
-  }, [selectedSchedule, selectedSeats, onComplete]);
+  }, [selectedSchedule, selectedSeatCodes, selectorSelectedCodes, seatMap, resolveSeatGrade, findSectionForSeat, onComplete]);
 
-  const getSeatColor = useCallback(
-    (seat: SeatDto) => {
-      console.log(`좌석 ${seat.seatId} 상태: "${seat.status}"`);
-
-      // 선택된 좌석 - 파란색
-      if (selectedSeats.includes(seat.seatId)) {
-        return "bg-blue-500 hover:bg-blue-600 cursor-pointer text-white shadow-md ring-2 ring-blue-300 transition-all duration-150 ease-out";
-      }
-
-      // 좌석 상태를 소문자로 변환하여 비교 (대소문자 구분 없이)
-      const status = seat.status?.toString().toUpperCase() || '';
-
-      // 예약된 좌석 - 노란색 배경 (다양한 상태값 처리)
-      const unavailableStatuses = [
-        "BOOKED", "OCCUPIED", "UNAVAILABLE", "RESERVED", 
-        "SOLD", "TAKEN", "BOOKING", "예약됨", "점유됨"
-      ];
-      
-      if (unavailableStatuses.includes(status)) {
-        return "!bg-yellow-400 cursor-not-allowed text-black font-bold border-2 border-yellow-600 shadow-inner opacity-100";
-      }
-
-      // 사용 가능한 좌석 - 초록색
-      const availableStatuses = ["AVAILABLE", "FREE", "OPEN", "사용가능"];
-      
-      if (availableStatuses.includes(status)) {
-        return "bg-green-500 hover:bg-green-600 cursor-pointer text-white hover:shadow-sm transition-all duration-150 ease-out";
-      }
-
-      // 기본값 - 알 수 없는 상태는 빨간색으로 표시하고 로그 출력 (더 눈에 띄게)
-      console.warn(
-        `알 수 없는 좌석 상태: "${seat.status}" (좌석 ID: ${seat.seatId})`
-      );
-      return "bg-red-300 cursor-not-allowed text-red-800 border border-red-400";
-    },
-    [selectedSeats]
-  );
 
   // Early return if performanceId is invalid
   if (!performanceId || isNaN(performanceId)) {
@@ -481,32 +936,7 @@ export function SeatSelection({
         )}
         */}
 
-        {/* 좌석 선택 안내 */}
-        <div className="text-center space-y-2">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
-              💺 최대 <span className="font-bold">4개</span>의 좌석까지 선택할
-              수 있습니다
-            </p>
-            <p className="text-xs text-blue-600 mt-1">
-              현재 선택된 좌석:{" "}
-              <span className="font-semibold">{selectedSeats.length}</span>개 /
-              4개
-            </p>
-          </div>
-        </div>
 
-        <div className="text-center space-y-2">
-          <div className="bg-gray-800 text-white py-2 px-4 rounded-lg inline-block">
-            STAGE
-          </div>
-          {seatRows.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              총 {seatRows.length}개 행 ({seatRows.join(", ")}) • {seats.length}
-              개 좌석
-            </p>
-          )}
-        </div>
 
         {loading ? (
           <div className="flex justify-center py-8">
@@ -514,122 +944,128 @@ export function SeatSelection({
           </div>
         ) : (
           <div className="space-y-4">
-            {seatRows.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
-                좌석 정보를 불러오는 중입니다...
-              </div>
-            ) : (
-              seatRows.map((row) => {
-                const rowSeats = getSortedSeatsForRow(row);
-                return (
-                  <div
-                    key={row}
-                    className="flex items-center justify-center gap-2"
-                  >
-                    <div className="w-8 text-center font-medium">{row}</div>
-                    <div className="flex gap-1">
-                      {rowSeats.map((seat) => (
-                        <div
-                          key={seat.seatId}
-                          className={`w-8 h-8 rounded text-xs flex items-center justify-center font-semibold select-none ${getSeatColor(
-                            seat
-                          )}`}
-                          onClick={() => handleSeatClick(seat.seatId)}
-                          onMouseDown={(e) => e.preventDefault()} // 드래그 방지
-                          title={`좌석 ${seat.seatRow}${
-                            seat.seatNumber
-                          }\n등급: ${
-                            seat.seatGrade || "Standard"
-                          }\n가격: ${seat.price.toLocaleString()}원\n상태: ${
-                            seat.status
-                          }`}
-                          style={{
-                            userSelect: "none",
-                            WebkitUserSelect: "none",
-                            MozUserSelect: "none",
-                            msUserSelect: "none",
-                            ...(seat.status === "BOOKED" || 
-                                seat.status === "OCCUPIED" || 
-                                seat.status === "UNAVAILABLE" || 
-                                seat.status === "RESERVED" || 
-                                seat.status === "SOLD" || 
-                                seat.status === "TAKEN" || 
-                                seat.status === "BOOKING" || 
-                                seat.status === "예약됨" || 
-                                seat.status === "점유됨" ? 
-                              {
-                                backgroundColor: "#6b7280",
-                                color: "#ffffff",
-                                cursor: "not-allowed"
-                              } : {})
-                          }}
-                        >
-                          {seat.seatNumber}
+            {venueId ? (
+              seatMapLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              ) : !seatMap || (seatMap.sections?.length ?? 0) === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  좌석 지도를 불러오지 못했습니다.
+                </div>
+              ) : (
+                <div className="min-h-[60vh] p-6 bg-white">
+                  <div className="max-w-7xl mx-auto">
+                    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                      <div className="flex flex-col lg:flex-row gap-8 p-6">
+                        <div className="flex-1">
+                          <div className="w-full pb-4 overflow-x-auto overflow-y-auto">
+                            <div className="min-w-max">
+                              {seatMap.sections.map((section, index) => renderSection(section, index))}
+                            </div>
+                          </div>
+
+                          <div className="mt-6 flex flex-wrap gap-6 justify-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 bg-gray-100 border border-gray-300 rounded-md flex items-center justify-center text-gray-800 text-xs">1</div>
+                              <span className="text-sm text-gray-600">선택가능</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 bg-blue-600 border border-blue-600 rounded-md flex items-center justify-center text-white text-xs">2</div>
+                              <span className="text-sm text-gray-600">선택됨</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 bg-gray-300 border border-gray-400 rounded-md flex items-center justify-center text-gray-600 text-xs">
+                                <X className="w-3 h-3" />
+                              </div>
+                              <span className="text-sm text-gray-600">예매완료</span>
+                            </div>
+                          </div>
                         </div>
-                      ))}
+
+                        <div className="lg:w-80">
+                          <Card className="bg-gray-50 rounded-md sticky top-4">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-base font-semibold">선택 좌석</CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0 space-y-4">
+                              <div>
+                                <h3 className="text-xs font-medium text-gray-600 mb-2">좌석 등급 (요금)</h3>
+                                <div className="space-y-1">
+                                  {(Object.entries(gradePrices) as [string, number][]) .map(([grade, price]) => (
+                                    <div key={grade} className="flex items-center justify-between text-xs text-gray-700">
+                                      <span className="flex items-center gap-2">
+                                        <span className={`inline-block w-3 h-3 rounded-sm ${gradeSwatchClass[grade] ?? 'bg-orange-600'}`} />
+                                        {grade}석
+                                      </span>
+                                      <span className="text-gray-900">₩{Number(price).toLocaleString()}</span>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+
+                              <div>
+                                <h3 className="text-xs font-medium text-gray-600 mb-2">선택한 좌석</h3>
+                                <div className="bg-white rounded border border-gray-200 p-3">
+                                  {selectorSelectedCodes.size > 0 ? (
+                                    <div className="space-y-2">
+                                      {Array.from(selectorSelectedCodes).map((seatId) => {
+                                        const grade = resolveSeatGrade(seatId, seatMap?.sections ?? []) || 'A';
+                                        const price = gradePrices[grade] ?? 0;
+                                        return (
+                                          <div key={seatId} className="flex items-center justify-between">
+                                            <span className="text-sm text-gray-700">{seatId} · {grade}석</span>
+                                            <span className="text-sm font-medium text-gray-900">₩{price.toLocaleString()}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-center h-10">
+                                      <p className="text-gray-400 text-sm">좌석을 선택해주세요</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="border-t border-gray-200 pt-3">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-700">총 금액</span>
+                                  <span className="text-lg font-semibold text-blue-600">₩{selectorTotal.toLocaleString()}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <Button
+                                  disabled={selectorSelectedCodes.size === 0 || loading}
+                                  onClick={handleBooking}
+                                  className="flex-1 py-5 text-base font-semibold bg-blue-600 text-white"
+                                >
+                                  예매하기
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={resetSelection}
+                                  className="flex-1"
+                                >
+                                  초기화
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                );
-              })
+                </div>
+              )
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                공연장의 좌석 지도를 불러오는 중입니다...
+              </div>
             )}
           </div>
-        )}
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-center gap-8 text-sm text-gray-600">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-500 rounded-sm shadow-sm"></div>
-              <span>사용 가능</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-500 rounded-sm shadow-sm"></div>
-              <span>선택됨 ({selectedSeats.length}/4)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: "#6b7280" }}></div>
-              <span>예약됨</span>
-            </div>
-          </div>
-
-          {selectedSeats.length >= 4 && (
-            <div className="text-center">
-              <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                ⚠️ 최대 선택 가능한 좌석 수에 도달했습니다 (4개)
-              </p>
-            </div>
-          )}
-        </div>
-
-        {selectedSeats.length > 0 && (
-          <Card className="bg-accent">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">
-                    Selected Seats ({selectedSeats.length})
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedSeats
-                      .map((seatId: number) => {
-                        const seat = seats.find(
-                          (s: SeatDto) => s.seatId === seatId
-                        );
-                        return seat ? `${seat.seatRow}${seat.seatNumber}` : "";
-                      })
-                      .join(", ")}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium">
-                    Total: {totalPrice.toLocaleString()}원
-                  </p>
-                  <Button onClick={handleBooking} disabled={loading}>
-                    {loading ? "Processing..." : "Confirm Booking"}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         )}
       </CardContent>
     </Card>
