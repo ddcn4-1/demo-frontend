@@ -246,9 +246,6 @@ export interface ApiResponse<T> {
     venueName?: string;
     performanceTitle?: string; // 공연 제목 추가
     showDate?: string; // date-time format
-    seatCode?: string; // 좌석 코드 추가
-    seatZone?: string; // 좌석 구역 추가
-    seatCodes?: string[]; // 여러 좌석 코드 배열
     seats?: BookingSeatDto[]; // 목록 응답에도 좌석 상세 포함 가능
     seatCount: number;
     totalAmount: number;
