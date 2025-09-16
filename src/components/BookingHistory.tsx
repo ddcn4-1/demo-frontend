@@ -52,6 +52,33 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
   const [viewingBookingDetails, setViewingBookingDetails] =
     useState<GetBookingDetail200ResponseDto | null>(null);
 
+  // Local override: Expires is 10 minutes from booking button click time
+  const [expiresOverrides, setExpiresOverrides] = useState<Record<string, string>>({});
+  // Local seat codes captured at booking time
+  const [localSeatCodesMap, setLocalSeatCodesMap] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('bookingExpiresOverrides');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') setExpiresOverrides(parsed);
+      }
+    } catch (e) {
+      console.warn('Failed to load booking expiration overrides', e);
+      setExpiresOverrides({});
+    }
+    try {
+      const rawCodes = localStorage.getItem('bookingSeatCodes');
+      if (rawCodes) {
+        const parsedCodes = JSON.parse(rawCodes);
+        if (parsedCodes && typeof parsedCodes === 'object') setLocalSeatCodesMap(parsedCodes);
+      }
+    } catch (e) {
+      console.warn('Failed to load local booking seat codes', e);
+      setLocalSeatCodesMap({});
+    }
+  }, []);
+
   useEffect(() => {
     const fetchBookings = async () => {
       try {
@@ -366,8 +393,10 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                     {booking.showDate
                       ? `Show: ${formatDate(booking.showDate)}`
                       : booking.status === 'PENDING'
-                        ? `Expires: ${formatDate(booking.expiresAt)}`
-                        : `Booked: ${formatDate(booking.bookedAt)}`}
+                        ? `Expires: ${formatDate(expiresOverrides[booking.bookingNumber] || booking.expiresAt)}`
+                        : booking.status === 'CONFIRMED'
+                          ? `Booked: ${formatDate(booking.bookedAt)}`
+                          : `Booked: ${formatDate(booking.bookedAt)}`}
                   </span>
                 </div>
 
@@ -379,38 +408,53 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {(() => {
-                        // Target: render badges equal to seatCount.
-                        const items: string[] = [];
-
-                        if (booking.seatCodes && booking.seatCodes.length > 0) {
-                          for (let i = 0; i < booking.seatCount; i++) {
-                            const seatCode = booking.seatCodes[i] ?? booking.seatCodes[booking.seatCodes.length - 1];
-                            items.push(
-                              booking.seatZone ? `${booking.seatZone}_${seatCode}` : `${seatCode}`
-                            );
-                          }
-                        } else if (booking.seatCode) {
-                          for (let i = 0; i < booking.seatCount; i++) {
-                            items.push(
-                              booking.seatZone
-                                ? `${booking.seatZone}_${booking.seatCode}`
-                                : `${booking.seatCode}`
-                            );
-                          }
-                        } else if (bookingDetails && bookingDetails.seats && bookingDetails.seats.length > 0) {
-                          for (let i = 0; i < booking.seatCount; i++) {
-                            const seat = bookingDetails.seats[i] ?? bookingDetails.seats[bookingDetails.seats.length - 1];
-                            items.push(`Seat ${seat.seatId}`);
-                          }
-                        } else {
-                          for (let i = 0; i < booking.seatCount; i++) {
-                            items.push(`Seat ${i + 1}`);
-                          }
+                        // 1) Prefer booking.seats with per-seat zone/rowLabel/colNum
+                        if (booking.seats && booking.seats.length > 0) {
+                          const labels = booking.seats.map((s: any, i: number) => {
+                            const code = `${s?.rowLabel ?? ''}${s?.colNum ?? ''}`.trim();
+                            const zone = s?.zone ? String(s.zone) : '';
+                            const label = code ? (zone ? `${zone}-${code}` : code) : (s?.seatId ? `Seat ${s.seatId}` : `Seat ${i + 1}`);
+                            return label;
+                          });
+                          const missing = Math.max(0, booking.seatCount - labels.length);
+                          const placeholders = Array.from({ length: missing }).map((_, i) => `Seat ${labels.length + i + 1}`);
+                          return [...labels, ...placeholders].map((label, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {label}
+                            </Badge>
+                          ));
                         }
-
-                        return items.map((label, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">
-                            {label}
+                        // 2) Next, backend-provided seatCodes
+                        if (booking.seatCodes && booking.seatCodes.length > 0) {
+                          const labels = booking.seatCodes.map((code) =>
+                            booking.seatZone ? `${booking.seatZone}-${code}` : `${code}`
+                          );
+                          const missing = Math.max(0, booking.seatCount - labels.length);
+                          const placeholders = Array.from({ length: missing }).map((_, i) => `Seat ${labels.length + i + 1}`);
+                          return [...labels, ...placeholders].map((label, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {label}
+                            </Badge>
+                          ));
+                        }
+                        // 3) Fallback to locally captured codes
+                        const localCodes = localSeatCodesMap[booking.bookingNumber] || [];
+                        if (localCodes.length > 0) {
+                          const labels = localCodes.map((code) =>
+                            booking.seatZone ? `${booking.seatZone}-${code}` : `${code}`
+                          );
+                          const missing = Math.max(0, booking.seatCount - labels.length);
+                          const placeholders = Array.from({ length: missing }).map((_, i) => `Seat ${labels.length + i + 1}`);
+                          return [...labels, ...placeholders].map((label, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {label}
+                            </Badge>
+                          ));
+                        }
+                        // 4) Plain placeholders
+                        return Array.from({ length: booking.seatCount }).map((_, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">
+                            {`Seat ${i + 1}`}
                           </Badge>
                         ));
                       })()}
@@ -418,15 +462,17 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-sm">
-                  <CreditCard className="w-4 h-4" />
-                  <span>Booked: {formatDate(booking.bookedAt)}</span>
-                </div>
+                {booking.status === 'CONFIRMED' && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <CreditCard className="w-4 h-4" />
+                    <span>Booked: {formatDate(booking.bookedAt)}</span>
+                  </div>
+                )}
 
-                {booking.showDate && (
+                {booking.status === 'PENDING' && (
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="w-4 h-4" />
-                    <span>Expires: {formatDate(booking.expiresAt)}</span>
+                    <span>Expires: {formatDate(expiresOverrides[booking.bookingNumber] || booking.expiresAt)}</span>
                   </div>
                 )}
               </div>
@@ -763,37 +809,53 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                   </p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {(() => {
-                      const items: string[] = [];
-
-                      if (viewingBooking.seatCodes && viewingBooking.seatCodes.length > 0) {
-                        for (let i = 0; i < viewingBooking.seatCount; i++) {
-                          const seatCode = viewingBooking.seatCodes[i] ?? viewingBooking.seatCodes[viewingBooking.seatCodes.length - 1];
-                          items.push(
-                            viewingBooking.seatZone ? `${viewingBooking.seatZone}_${seatCode}` : `${seatCode}`
-                          );
-                        }
-                      } else if (viewingBooking.seatCode) {
-                        for (let i = 0; i < viewingBooking.seatCount; i++) {
-                          items.push(
-                            viewingBooking.seatZone
-                              ? `${viewingBooking.seatZone}_${viewingBooking.seatCode}`
-                              : `${viewingBooking.seatCode}`
-                          );
-                        }
-                      } else if (viewingBookingDetails && viewingBookingDetails.seats && viewingBookingDetails.seats.length > 0) {
-                        for (let i = 0; i < viewingBooking.seatCount; i++) {
-                          const seat = viewingBookingDetails.seats[i] ?? viewingBookingDetails.seats[viewingBookingDetails.seats.length - 1];
-                          items.push(`Seat ${seat.seatId}`);
-                        }
-                      } else {
-                        for (let i = 0; i < viewingBooking.seatCount; i++) {
-                          items.push(`Seat ${i + 1}`);
-                        }
+                      // 1) Prefer viewingBooking.seats with per-seat info
+                      if (viewingBooking.seats && viewingBooking.seats.length > 0) {
+                        const labels = (viewingBooking.seats as any[]).map((s: any, i: number) => {
+                          const code = `${s?.rowLabel ?? ''}${s?.colNum ?? ''}`.trim();
+                          const zone = s?.zone ? String(s.zone) : '';
+                          const label = code ? (zone ? `${zone}-${code}` : code) : (s?.seatId ? `Seat ${s.seatId}` : `Seat ${i + 1}`);
+                          return label;
+                        });
+                        const missing = Math.max(0, viewingBooking.seatCount - labels.length);
+                        const placeholders = Array.from({ length: missing }).map((_, i) => `Seat ${labels.length + i + 1}`);
+                        return [...labels, ...placeholders].map((label, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {label}
+                          </Badge>
+                        ));
                       }
-
-                      return items.map((label, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
-                          {label}
+                      // 2) Next, booking-level seatCodes
+                      if (viewingBooking.seatCodes && viewingBooking.seatCodes.length > 0) {
+                        const labels = viewingBooking.seatCodes.map((code) =>
+                          viewingBooking.seatZone ? `${viewingBooking.seatZone}-${code}` : `${code}`
+                        );
+                        const missing = Math.max(0, viewingBooking.seatCount - labels.length);
+                        const placeholders = Array.from({ length: missing }).map((_, i) => `Seat ${labels.length + i + 1}`);
+                        return [...labels, ...placeholders].map((label, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {label}
+                          </Badge>
+                        ));
+                      }
+                      // 3) Local captured codes
+                      const localCodes = localSeatCodesMap[viewingBooking.bookingNumber] || [];
+                      if (localCodes.length > 0) {
+                        const labels = localCodes.map((code) =>
+                          viewingBooking.seatZone ? `${viewingBooking.seatZone}-${code}` : `${code}`
+                        );
+                        const missing = Math.max(0, viewingBooking.seatCount - labels.length);
+                        const placeholders = Array.from({ length: missing }).map((_, i) => `Seat ${labels.length + i + 1}`);
+                        return [...labels, ...placeholders].map((label, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {label}
+                          </Badge>
+                        ));
+                      }
+                      // 4) Plain placeholders
+                      return Array.from({ length: viewingBooking.seatCount }).map((_, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {`Seat ${i + 1}`}
                         </Badge>
                       ));
                     })()}
@@ -816,14 +878,16 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                   </div>
                 )}
 
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Booked At
-                  </p>
-                  <p className="font-medium">
-                    {formatDate(viewingBooking.bookedAt)}
-                  </p>
-                </div>
+                {viewingBooking.status === 'CONFIRMED' && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Booked At
+                    </p>
+                    <p className="font-medium">
+                      {formatDate(viewingBooking.bookedAt)}
+                    </p>
+                  </div>
+                )}
 
                 {viewingBooking.status === 'PENDING' && (
                   <div>
@@ -831,7 +895,7 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                       Expires At
                     </p>
                     <p className="font-medium">
-                      {formatDate(viewingBooking.expiresAt)}
+                      {formatDate(expiresOverrides[viewingBooking.bookingNumber] || viewingBooking.expiresAt)}
                     </p>
                   </div>
                 )}
