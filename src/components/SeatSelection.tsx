@@ -111,6 +111,17 @@ export function SeatSelection({
   const [selectorSelectedCodes, setSelectorSelectedCodes] = useState<Set<string>>(new Set());
   const [hoveredSeat, setHoveredSeat] = useState<string | null>(null);
 
+  // Performance optimization: Cache for section-seat mapping
+  const [sectionCache, setSectionCache] = useState<{
+    rowToSection: Map<string, { section: SeatMapSection; index: number; grade: string }>;
+    zoneToSections: Map<string, { section: SeatMapSection; index: number }[]>;
+    lastSeatMapVersion: number;
+  }>({
+    rowToSection: new Map(),
+    zoneToSections: new Map(),
+    lastSeatMapVersion: 0,
+  });
+
   // Reset all seat selection-related states
   const resetSelection = useCallback(() => {
     setSelectedSeats([]);
@@ -163,30 +174,124 @@ export function SeatSelection({
     return indexToAlpha(targetIndex, alphabet);
   }
 
-  const resolveSeatGrade = useCallback((seatId: string, sections: SeatMapSection[]): GradeKey | undefined => {
-    const rowLabel = seatId.split('-')[0];
-    for (const sec of sections) {
-      for (let r = 0; r < sec.rows; r++) {
-        const label = generateRowLabel(sec.rowLabelFrom, r);
-        if (label === rowLabel) return (sec.grade as GradeKey) || 'A';
-      }
-    }
-    return undefined;
-  }, []);
+  // Build cache when seatMap changes
+  useEffect(() => {
+    if (!seatMap?.sections) return;
 
-  const findSectionForSeat = useCallback((rowLabel: string, col: number, sections: SeatMapSection[]): SeatMapSection | undefined => {
-    for (const sec of sections) {
-      for (let r = 0; r < sec.rows; r++) {
-        const label = generateRowLabel(sec.rowLabelFrom, r);
-        if (label === rowLabel) {
-          const start = sec.seatStart ?? 1;
-          const end = start + sec.cols - 1;
-          if (col >= start && col <= end) return sec;
+    const currentVersion = Date.now(); // Simple version tracking
+    if (sectionCache.lastSeatMapVersion === currentVersion) return;
+
+    const rowToSection = new Map<string, { section: SeatMapSection; index: number; grade: string }>();
+    const zoneToSections = new Map<string, { section: SeatMapSection; index: number }[]>();
+
+    seatMap.sections.forEach((section, sectionIndex) => {
+      const grade = (section.grade as GradeKey) || 'A';
+      const zoneId = getSectionIdentifier(section, sectionIndex);
+
+      // Cache zone to sections mapping
+      if (!zoneToSections.has(zoneId)) {
+        zoneToSections.set(zoneId, []);
+      }
+      zoneToSections.get(zoneId)!.push({ section, index: sectionIndex });
+
+      // Cache all row labels for this section
+      for (let r = 0; r < section.rows; r++) {
+        const rowLabel = generateRowLabel(section.rowLabelFrom, r);
+        const cacheKey = zoneId ? `${zoneId}:${rowLabel}` : rowLabel;
+
+        if (!rowToSection.has(cacheKey)) {
+          rowToSection.set(cacheKey, { section, index: sectionIndex, grade });
         }
       }
+    });
+
+    setSectionCache({
+      rowToSection,
+      zoneToSections,
+      lastSeatMapVersion: currentVersion,
+    });
+  }, [seatMap]);
+
+  const resolveSeatGrade = useCallback((seatId: string, sections: SeatMapSection[]): GradeKey | undefined => {
+    const { rowLabel, seatNumber, zone } = parseSeatCode(seatId);
+    if (!rowLabel) return undefined;
+
+    const normalizedZone = normalizeZoneValue(zone);
+    const numericSeat = parseInt(seatNumber, 10);
+
+    // Try cache first
+    const cacheKey = normalizedZone ? `${normalizedZone}:${rowLabel}` : rowLabel;
+    const cached = sectionCache.rowToSection.get(cacheKey);
+
+    if (cached) {
+      // Validate seat number range if numeric
+      if (!isNaN(numericSeat)) {
+        const start = cached.section.seatStart ?? 1;
+        const end = start + cached.section.cols - 1;
+        if (numericSeat >= start && numericSeat <= end) {
+          return cached.grade;
+        }
+      } else {
+        return cached.grade;
+      }
+    }
+
+    // Fallback to original logic if cache miss
+    for (let idx = 0; idx < sections.length; idx++) {
+      const sec = sections[idx];
+      if (normalizedZone && getSectionIdentifier(sec, idx) !== normalizedZone) continue;
+      for (let r = 0; r < sec.rows; r++) {
+        const label = generateRowLabel(sec.rowLabelFrom, r);
+        if (label !== rowLabel) continue;
+        if (!isNaN(numericSeat)) {
+          const start = sec.seatStart ?? 1;
+          const end = start + sec.cols - 1;
+          if (numericSeat < start || numericSeat > end) continue;
+        }
+        return (sec.grade as GradeKey) || 'A';
+      }
     }
     return undefined;
-  }, []);
+  }, [sectionCache]);
+
+  const findSectionForSeat = useCallback((rowLabel: string, col: number, zone: string | undefined, sections: SeatMapSection[]): { section: SeatMapSection; index: number } | undefined => {
+    const normalizedZone = normalizeZoneValue(zone);
+    const numericCol = typeof col === 'number' ? col : Number(col);
+
+    // Try cache first
+    const cacheKey = normalizedZone ? `${normalizedZone}:${rowLabel}` : rowLabel;
+    const cached = sectionCache.rowToSection.get(cacheKey);
+
+    if (cached) {
+      // Validate seat number range if numeric
+      if (!isNaN(numericCol)) {
+        const start = cached.section.seatStart ?? 1;
+        const end = start + cached.section.cols - 1;
+        if (numericCol >= start && numericCol <= end) {
+          return { section: cached.section, index: cached.index };
+        }
+      } else {
+        return { section: cached.section, index: cached.index };
+      }
+    }
+
+    // Fallback to original logic if cache miss
+    for (let idx = 0; idx < sections.length; idx++) {
+      const sec = sections[idx];
+      if (normalizedZone && getSectionIdentifier(sec, idx) !== normalizedZone) continue;
+      for (let r = 0; r < sec.rows; r++) {
+        const label = generateRowLabel(sec.rowLabelFrom, r);
+        if (label !== rowLabel) continue;
+        if (!isNaN(numericCol)) {
+          const start = sec.seatStart ?? 1;
+          const end = start + sec.cols - 1;
+          if (numericCol < start || numericCol > end) continue;
+        }
+        return { section: sec, index: idx };
+      }
+    }
+    return undefined;
+  }, [sectionCache]);
 
   // Fetch seat map when venueId becomes available
   useEffect(() => {
@@ -256,7 +361,7 @@ export function SeatSelection({
     }
   }, [seatMap, seats]);
 
-  // Convert backend seat to display code (ROW-NUMBER) respecting remap
+  // Convert backend seat to unique code including zone/section when available
   const seatToCode = useCallback((s: SeatDto) => {
     const rawRow = String(s.seatRow).trim().toUpperCase();
     const mapped = rowRemap.get(rawRow);
@@ -265,10 +370,20 @@ export function SeatSelection({
       const digitsInRow = rawRow.match(/\d+/g);
       return letters && letters.length > 0 ? letters[letters.length - 1] : (digitsInRow ? String(parseInt(digitsInRow[0], 10)) : rawRow);
     })();
-    const parsed = parseInt(String(s.seatNumber).trim(), 10);
-    const numLabel = isNaN(parsed) ? String(s.seatNumber) : String(parsed);
-    return `${rowLabel}-${numLabel}`;
-  }, [rowRemap]);
+    const parsedNumber = parseInt(String(s.seatNumber).trim(), 10);
+    const numLabel = isNaN(parsedNumber) ? String(s.seatNumber).trim() : String(parsedNumber);
+
+    let zoneKey = normalizeZoneValue(s.seatZone);
+    const numericSeat = isNaN(parsedNumber) ? NaN : parsedNumber;
+    if (!zoneKey && seatMap?.sections?.length) {
+      const match = findSectionForSeat(rowLabel, numericSeat, undefined, seatMap.sections);
+      if (match) {
+        zoneKey = getSectionIdentifier(match.section, match.index);
+      }
+    }
+
+    return buildSeatCode({ zone: zoneKey, rowLabel, seatNumber: numLabel });
+  }, [rowRemap, seatMap, findSectionForSeat]);
 
   // Keep occupied codes in sync when seats or remap change
   useEffect(() => {
@@ -330,7 +445,8 @@ export function SeatSelection({
       const rowSeats: React.ReactNode[] = [];
       for (let col = 0; col < section.cols; col++) {
         const seatNumber = seatStart + col;
-        const seatId = `${rowLabel}-${seatNumber}`;
+        const zoneKey = getSectionIdentifier(section, sectionIndex);
+        const seatId = buildSeatCode({ zone: zoneKey, rowLabel, seatNumber });
         const isSelected = selectorSelectedCodes.has(seatId);
         const isOccupied = occupiedSeatCodes.has(seatId);
         const isHovered = hoveredSeat === seatId;
@@ -367,7 +483,8 @@ export function SeatSelection({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {seatId} · {grade}석 · ₩{(gradePrices[grade] ?? 0).toLocaleString()}
+              {section.zone || section.name ? `${section.zone || section.name} · ` : ''}
+              {`${rowLabel}-${seatNumber}`} · {grade}석 · ₩{(gradePrices[grade] ?? 0).toLocaleString()}
             </TooltipContent>
           </Tooltip>
         );
@@ -479,7 +596,56 @@ export function SeatSelection({
     }
   };
 
-  const normalizeSeatCode = (row: string | number, num: string | number) => {
+  const SEAT_ZONE_SEPARATOR = "::";
+
+  const normalizeZoneValue = (value?: string | null) => {
+    if (value === undefined || value === null) return undefined;
+    const trimmed = String(value).trim();
+    return trimmed ? trimmed.toUpperCase() : undefined;
+  };
+
+  const buildSeatCode = ({
+    zone,
+    rowLabel,
+    seatNumber,
+  }: {
+    zone?: string | null;
+    rowLabel: string;
+    seatNumber: string | number;
+  }) => {
+    const normalizedRow = String(rowLabel).trim();
+    const normalizedSeat = String(seatNumber).trim();
+    const zoneKey = normalizeZoneValue(zone);
+    const base = `${normalizedRow}-${normalizedSeat}`;
+    return zoneKey ? `${zoneKey}${SEAT_ZONE_SEPARATOR}${base}` : base;
+  };
+
+  const parseSeatCode = (code: string) => {
+    const raw = String(code ?? "");
+    const sepIndex = raw.indexOf(SEAT_ZONE_SEPARATOR);
+    let zone: string | undefined;
+    let remainder = raw;
+    if (sepIndex >= 0) {
+      zone = raw.slice(0, sepIndex).trim() || undefined;
+      remainder = raw.slice(sepIndex + SEAT_ZONE_SEPARATOR.length);
+    }
+    const [rowLabelRaw = "", seatRaw = ""] = remainder.split("-");
+    return {
+      zone,
+      rowLabel: rowLabelRaw.trim(),
+      seatNumber: seatRaw.trim(),
+    };
+  };
+
+  const getSectionIdentifier = (section: SeatMapSection, index: number) => {
+    return (
+      normalizeZoneValue(section.zone) ||
+      normalizeZoneValue(section.name) ||
+      `SECTION-${index + 1}`
+    );
+  };
+
+  const normalizeSeatCode = (row: string | number, num: string | number, zone?: string | null) => {
     const rawRow = String(row).trim().toUpperCase();
     const letters = rawRow.match(/[A-Z]+/g);
     const digitsInRow = rawRow.match(/\d+/g);
@@ -489,7 +655,7 @@ export function SeatSelection({
     const rawNum = String(num).trim();
     const parsed = parseInt(rawNum, 10);
     const numLabel = isNaN(parsed) ? rawNum : String(parsed);
-    return `${rowLabel}-${numLabel}`;
+    return buildSeatCode({ zone, rowLabel, seatNumber: numLabel });
   };
 
   const loadSeats = async (scheduleId: number) => {
@@ -509,7 +675,7 @@ export function SeatSelection({
         for (const s of seatResponse.data.seats) {
           const status = s.status?.toString().toUpperCase();
           if (status && status !== "AVAILABLE") {
-            occ.add(normalizeSeatCode(s.seatRow, s.seatNumber));
+            occ.add(normalizeSeatCode(s.seatRow, s.seatNumber, s.seatZone));
           }
         }
         setOccupiedSeatCodes(occ);
@@ -588,15 +754,17 @@ export function SeatSelection({
   useEffect(() => {
     if (!selectedSeatCodes || selectedSeatCodes.length === 0 || seats.length === 0) return;
     const map = new Map<string, number>();
-    seats.forEach((s) => map.set(normalizeSeatCode(s.seatRow, s.seatNumber), s.seatId));
+    seats.forEach((s) => map.set(seatToCode(s), s.seatId));
     const ids = selectedSeatCodes
       .map((code) => {
-        const [row, num] = String(code).split('-');
-        return map.get(normalizeSeatCode(row ?? '', num ?? ''));
+        const direct = map.get(String(code));
+        if (typeof direct === 'number') return direct;
+        const parsed = parseSeatCode(String(code));
+        return map.get(normalizeSeatCode(parsed.rowLabel, parsed.seatNumber, parsed.zone));
       })
       .filter((v): v is number => typeof v === 'number');
     setSelectedSeatIdsFromSelector(ids);
-  }, [selectedSeatCodes, seats]);
+  }, [selectedSeatCodes, seats, seatToCode]);
 
   const totalPrice = useMemo(() => {
     // Prefer selectorTotal if using new selector
@@ -690,13 +858,14 @@ export function SeatSelection({
       seats.forEach((s) => codeToSeat.set(seatToCode(s), s));
 
       const seatsPayload = codes.map((code) => {
-        const [rowLabelRaw, colRaw] = String(code).split('-');
-        const rowLabel = String(rowLabelRaw ?? '').trim();
-        const colNumStr = String(colRaw ?? '').trim();
+        const parsed = parseSeatCode(String(code));
         const fromSeat = codeToSeat.get(code);
+        const rowLabel = parsed.rowLabel || '';
+        const colNumStr = parsed.seatNumber || '';
+        const zoneFromSeat = fromSeat?.seatZone;
         return {
           grade: String(fromSeat?.seatGrade ?? ''),
-          zone: String(fromSeat?.seatZone ?? ''),
+          zone: String(zoneFromSeat ?? parsed.zone ?? ''),
           rowLabel,
           colNum: colNumStr,
         };
