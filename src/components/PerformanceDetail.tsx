@@ -78,12 +78,14 @@ export function PerformanceDetail({
 
     const getStatusColor = (status: string) => {
         switch (status?.toUpperCase()) {
-            case 'SCHEDULED':
             case 'OPEN':
+                return 'default';
+            case 'UPCOMING': // 새로 추가
                 return 'default';
             case 'ONGOING':
                 return 'default';
-            case 'COMPLETED':
+            case 'ENDED': // COMPLETED → ENDED
+                return 'secondary';
             case 'CLOSED':
                 return 'secondary';
             case 'CANCELLED':
@@ -97,11 +99,11 @@ export function PerformanceDetail({
 
     const getStatusLabel = (status: string) => {
         const statusLabels: Record<string, string> = {
-            SCHEDULED: 'Available',
             OPEN: 'Available',
+            UPCOMING: 'Upcoming', // 새로 추가
             ONGOING: 'In Progress',
-            COMPLETED: 'Completed',
-            CLOSED: 'Completed',
+            ENDED: 'Ended', // COMPLETED → ENDED
+            CLOSED: 'Closed',
             CANCELLED: 'Cancelled',
             SOLDOUT: 'Sold Out',
         };

@@ -4,18 +4,9 @@ import { PerformanceList } from './PerformanceList';
 import { BookingHistory } from './BookingHistory';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardHeader, CardContent, CardTitle } from './ui/card';
-import { Alert, AlertDescription } from './ui/alert';
 import { Button } from './ui/button';
 import { LogIn } from 'lucide-react';
-import { Performance, PerformanceSchedule } from '../data/mockServer';
-
-interface User {
-    user_id: number;
-    email: string;
-    username: string;
-    name: string;
-    role: string;
-}
+import { User, Performance, PerformanceSchedule } from './type/index';
 
 interface ClientDashboardProps {
     user: User | null;
@@ -64,9 +55,7 @@ export function ClientDashboard({ user, onOpenQueue }: ClientDashboardProps) {
             // 첫 번째 사용 가능한 스케줄을 찾아서 큐에 전달
             const availableSchedule = performance.schedules?.find(
                 (schedule) =>
-                    schedule.available_seats > 0 &&
-                    (schedule.status === 'SCHEDULED' ||
-                        schedule.status === 'OPEN')
+                    schedule.available_seats > 0 && schedule.status === 'OPEN'
             );
             onOpenQueue(performance, availableSchedule);
         } else {
