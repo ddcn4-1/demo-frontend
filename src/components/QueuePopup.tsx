@@ -11,6 +11,7 @@ import { Button } from './ui/button';
 import { Users, Clock, Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import {queueService, QueueStatusResponse} from "./service/queueService";
 import {Performance, PerformanceSchedule} from "./type";
+import QueueLifecycleHandler from './QueueLifecycleHandler';
 
 export interface QueueStatus {
     token: string;
@@ -46,11 +47,22 @@ export function QueuePopup({
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const stopPollingRef = useRef<(() => void) | null>(null);
 
+    // 생명주기 관리용 상태
+    const [isActiveSession, setIsActiveSession] = useState(false);
+
     // Format time in MM:SS format
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // 세션 손실 처리
+    const handleSessionLost = () => {
+        console.log('Session lost detected');
+        setError('연결이 끊어졌습니다. 대기열에 다시 참여해주세요.');
+        setIsActiveSession(false);
+        cleanup();
     };
 
     // Initialize queue when popup opens
@@ -80,6 +92,7 @@ export function QueuePopup({
                 if (remaining === 0) {
                     // Session expired
                     setQueueStatus(prev => prev ? { ...prev, status: 'EXPIRED' } : null);
+                    setIsActiveSession(false);
                 }
             };
 
@@ -97,17 +110,22 @@ export function QueuePopup({
     // Handle status changes
     useEffect(() => {
         if (queueStatus?.status === 'ACTIVE' && queueStatus.isActiveForBooking) {
+            setIsActiveSession(true);
             // User can now book - proceed after showing message for 2 seconds
             setTimeout(() => {
                 onQueueComplete(performance, selectedSchedule);
                 cleanup();
             }, 2000);
         } else if (queueStatus?.status === 'EXPIRED') {
+            setIsActiveSession(false);
             // Queue expired
             setTimeout(() => {
                 onQueueExpired();
                 cleanup();
             }, 3000);
+        } else if (queueStatus?.status === 'WAITING') {
+            // 대기 상태에서도 heartbeat 필요 (이후 선택)
+            setIsActiveSession(false);
         }
     }, [queueStatus?.status, queueStatus?.isActiveForBooking]);
 
@@ -124,6 +142,7 @@ export function QueuePopup({
         setTimeRemaining(0);
         setError(null);
         setIsInitializing(false);
+        setIsActiveSession(false);
     };
 
     const initializeQueue = async () => {
@@ -145,6 +164,7 @@ export function QueuePopup({
                 if (checkResponse.success && checkResponse.data.canProceedDirectly) {
                     // 바로 진입 가능 - 즉시 완료 처리
                     console.log('Direct access granted - proceeding immediately');
+                    setIsActiveSession(true);
                     // 즉시 진행 (로딩 표시 없이)
                     onQueueComplete(performance, selectedSchedule);
                     cleanup();
@@ -175,9 +195,12 @@ export function QueuePopup({
 
                 setQueueStatus(statusData);
 
-                // 대기 상태이면 폴링 시작
+                // 대기 상태면 폴링 시작
                 if (tokenData.status === 'WAITING') {
                     startPolling(tokenData.token);
+                } else if (tokenData.status === 'ACTIVE') {
+                    // 이미 활성 상태면 세션 활성화
+                    setIsActiveSession(true);
                 }
             } else {
                 throw new Error(response.error || 'Failed to issue queue token');
@@ -198,13 +221,19 @@ export function QueuePopup({
             setQueueStatus(status);
         };
 
-        // 폴링 시작 (3초 간격)
-        queueService.pollQueueStatus(token, onStatusUpdate, 3000)
+        const onPollingError = (errorMessage: string) => {
+            console.error('Polling error:', errorMessage);
+            setError(errorMessage);
+        };
+
+        // 향상된 폴링 사용 (재시도 기능 포함)
+        queueService.pollQueueStatusWithRetry(token, onStatusUpdate, onPollingError, 3000)
             .then(stopFunction => {
                 stopPollingRef.current = stopFunction;
             })
             .catch(error => {
                 console.error('Polling setup error:', error);
+                setError('대기열 상태 확인에 실패했습니다.');
             });
     };
 
@@ -256,12 +285,12 @@ export function QueuePopup({
 
         switch (queueStatus?.status) {
             case 'WAITING':
-                if (queueStatus.positionInQueue === 0) {
+                // ⭐ null 체크 추가 및 기본값 설정
+                const position = queueStatus.positionInQueue ?? 1;
+                if (position === 0 || position === null) {
                     return "It's your turn! Proceeding to seat selection...";
                 }
-                return `${queueStatus.positionInQueue} ${
-                    queueStatus.positionInQueue === 1 ? 'person' : 'people'
-                } ahead of you`;
+                return `${position} ${position === 1 ? 'person' : 'people'} ahead of you`;
             case 'ACTIVE':
                 return 'Your session is active! You can now select seats.';
             case 'EXPIRED':
@@ -273,124 +302,174 @@ export function QueuePopup({
         }
     };
 
-    // 전체 대기열 크기 추정 (실제로는 백엔드에서 제공해야 함)
-    const estimatedTotalQueue = queueStatus ? queueStatus.positionInQueue + Math.floor(Math.random() * 50) + 20 : 100;
-    const progressPercentage = queueStatus
-        ? ((estimatedTotalQueue - queueStatus.positionInQueue) / estimatedTotalQueue) * 100
-        : 0;
+    //임시 코드
+    const shouldShowProgress = true; // 강제로 true
+    /*  const safePosition = 5; // 강제로 5
+     const progressPercentage = 50; // 강제로 50%
+     */
+    // 전체 대기열 크기 추정
+    // const shouldShowProgress = queueStatus?.status === 'WAITING' &&
+    //     queueStatus.positionInQueue != null &&
+    //     queueStatus.positionInQueue > 0;
+
+    const safePosition = queueStatus?.positionInQueue ?? 1;
+    const safeEstimatedTime = queueStatus?.estimatedWaitTime ?? 60; // 기본 1분
+    const estimatedTotalQueue = safePosition + Math.floor(Math.random() * 50) + 20;
+    const progressPercentage = Math.max(0, Math.min(100,
+        ((estimatedTotalQueue - safePosition) / estimatedTotalQueue) * 100
+    ));
+
 
     return (
-        <Dialog open={isOpen} onOpenChange={() => {}}>
-            <DialogContent className="sm:max-w-md" hideClose>
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Users className="w-5 h-5" />
-                        Queue System
-                    </DialogTitle>
-                    <DialogDescription>
-                        {performance.title} 예매를 위해 대기열에 참여하고 있습니다.
-                        현재 위치와 예상 대기시간을 확인하세요.
-                    </DialogDescription>
-                </DialogHeader>
+        <>
+            {/* 생명주기 관리 컴포넌트 */}
+            <QueueLifecycleHandler
+                performance={performance}
+                selectedSchedule={selectedSchedule}
+                isActive={isActiveSession}
+                onSessionLost={handleSessionLost}
+            />
 
-                <div className="space-y-6">
-                    {/* Queue Status */}
-                    <div className="text-center space-y-4">
-                        <div className="flex justify-center">
-                            {getStatusIcon()}
-                        </div>
+            <Dialog open={isOpen} onOpenChange={() => {}}>
+                <DialogContent className="sm:max-w-md" hideClose>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Users className="w-5 h-5" />
+                            Queue System
+                        </DialogTitle>
+                        <DialogDescription>
+                            {performance.title} 예매를 위해 대기열에 참여하고 있습니다.
+                            현재 위치와 예상 대기시간을 확인하세요.
+                        </DialogDescription>
+                    </DialogHeader>
 
-                        <div className="space-y-2">
-                            <p className="text-lg font-medium">
-                                {getStatusMessage()}
-                            </p>
+                    <div className="space-y-6">
+                        {/* Queue Status */}
+                        <div className="text-center space-y-4">
+                            <div className="flex justify-center">
+                                {getStatusIcon()}
+                            </div>
 
-                            {queueStatus && queueStatus.status === 'WAITING' && queueStatus.positionInQueue > 0 && (
-                                <div className="space-y-3">
-                                    <div className="text-center">
-                                        <div className="text-2xl font-bold text-primary">
-                                            {queueStatus.positionInQueue}
+                            <div className="space-y-2">
+                                <p className="text-lg font-medium">
+                                    {getStatusMessage()}
+                                </p>
+
+                                {shouldShowProgress && (
+                                    <div className="space-y-3">
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-primary">
+                                                {safePosition}
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">
+                                                대기 순번
+                                            </p>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            대기 순번
+
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-sm">
+                                                <span>진행률</span>
+                                                <span>{Math.round(progressPercentage)}%</span>
+                                            </div>
+                                            <Progress value={progressPercentage} className="h-2" />
+                                        </div>
+
+                {/*                        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">*/}
+                {/*                            <Clock className="w-4 h-4" />*/}
+                {/*                            <span>*/}
+                {/*    예상 대기시간: {Math.ceil(safeEstimatedTime / 60)}분*/}
+                {/*</span>*/}
+                {/*                        </div>*/}
+                                    </div>
+                                )}
+
+                                {queueStatus?.status === 'ACTIVE' && timeRemaining > 0 && (
+                                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                                        <p className="text-sm text-green-700 dark:text-green-300 mb-2">
+                                            예매 세션이 활성화되었습니다!
+                                        </p>
+                                        {/*<div className="flex items-center justify-center gap-2 text-sm font-medium text-green-800 dark:text-green-200">*/}
+                                        {/*    <Clock className="w-4 h-4" />*/}
+                                        {/*    <span>남은 시간: {formatTime(timeRemaining)}</span>*/}
+                                        {/*</div>*/}
+                                        <div className="mt-2 text-xs text-green-600 dark:text-green-400 text-center">
+                                            페이지를 새로고침하거나 벗어나지 마세요
+                                        </div>
+                                    </div>
+                                )}
+
+                                {queueStatus?.status === 'EXPIRED' && (
+                                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                                        <p className="text-sm text-red-700 dark:text-red-300">
+                                            세션이 만료되었습니다. 다시 대기열에 참여할 수 있습니다.
                                         </p>
                                     </div>
+                                )}
 
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span>진행률</span>
-                                            <span>{Math.round(progressPercentage)}%</span>
+                                {error && (
+                                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                                        <p className="text-sm text-red-700 dark:text-red-300">
+                                            {error}
+                                        </p>
+                                        {error.includes('새로고침') && (
+                                            <div className="mt-2 text-xs text-red-600 dark:text-red-400">
+                                                연결 상태를 확인하고 다시 시도해주세요
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* 활성 세션 중 추가 안내 */}
+                                {isActiveSession && queueStatus?.status === 'ACTIVE' && (
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                                        <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+                                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                            <span>세션 활성화됨 - 연결 유지 중</span>
                                         </div>
-                                        <Progress value={progressPercentage} className="h-2" />
                                     </div>
+                                )}
+                            </div>
+                        </div>
 
-                                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                                        <Clock className="w-4 h-4" />
-                                        <span>
-                                            예상 대기시간: {Math.ceil(queueStatus.estimatedWaitTime / 60)}분
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {queueStatus?.status === 'ACTIVE' && timeRemaining > 0 && (
-                                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                                    <p className="text-sm text-green-700 dark:text-green-300 mb-2">
-                                        예매 세션이 활성화되었습니다!
-                                    </p>
-                                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-green-800 dark:text-green-200">
-                                        <Clock className="w-4 h-4" />
-                                        <span>남은 시간: {formatTime(timeRemaining)}</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {queueStatus?.status === 'EXPIRED' && (
-                                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
-                                    <p className="text-sm text-red-700 dark:text-red-300">
-                                        세션이 만료되었습니다. 다시 대기열에 참여할 수 있습니다.
-                                    </p>
-                                </div>
-                            )}
-
+                        {/* Actions */}
+                        <div className="flex gap-2">
                             {error && (
-                                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
-                                    <p className="text-sm text-red-700 dark:text-red-300">
-                                        {error}
-                                    </p>
-                                </div>
+                                <Button onClick={handleRetry} className="flex-1">
+                                    다시 시도
+                                </Button>
+                            )}
+
+                            {queueStatus?.status === 'WAITING' && (
+                                <Button
+                                    variant="outline"
+                                    onClick={handleLeaveQueue}
+                                    className="flex-1"
+                                >
+                                    대기열 나가기
+                                </Button>
+                            )}
+
+                            {(queueStatus?.status === 'EXPIRED' ||
+                                queueStatus?.status === 'CANCELLED' ||
+                                error) && (
+                                <Button onClick={onClose} className="flex-1">
+                                    닫기
+                                </Button>
                             )}
                         </div>
-                    </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                        {error && (
-                            <Button onClick={handleRetry} className="flex-1">
-                                다시 시도
-                            </Button>
-                        )}
-
-                        {queueStatus?.status === 'WAITING' && (
-                            <Button
-                                variant="outline"
-                                onClick={handleLeaveQueue}
-                                className="flex-1"
-                            >
-                                대기열 나가기
-                            </Button>
-                        )}
-
-                        {(queueStatus?.status === 'EXPIRED' ||
-                            queueStatus?.status === 'CANCELLED' ||
-                            error) && (
-                            <Button onClick={onClose} className="flex-1">
-                                닫기
-                            </Button>
+                        {/* 대기 중 유의사항 */}
+                        {(queueStatus?.status === 'WAITING' || queueStatus?.status === 'ACTIVE') && (
+                            <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                                <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                                    💡 대기열 진행 중에는 페이지를 새로고침하거나 다른 탭으로 이동하지 마세요.
+                                    순서를 잃을 수 있습니다.
+                                </p>
+                            </div>
                         )}
                     </div>
-                </div>
-            </DialogContent>
-        </Dialog>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }

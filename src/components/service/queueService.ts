@@ -23,6 +23,18 @@ export interface QueueStatusResponse {
     bookingExpiresAt?: string;
     performanceTitle?: string;
 }
+// 새로운 인터페이스들
+export interface HeartbeatRequest {
+    performanceId: number;
+    scheduleId: number;
+}
+
+export interface SessionReleaseRequest {
+    performanceId: number;
+    scheduleId: number;
+    reason?: string;
+}
+
 
 export interface ApiResponseTokenIssue {
     message?: string;
@@ -81,6 +93,8 @@ export interface ApiResponseQueueCheck {
 }
 
 class QueueService {
+    private heartbeatRetryCount = 0;
+    private maxHeartbeatRetries = 3;
     /**
      * 대기열 필요성 확인
      */
@@ -165,13 +179,59 @@ class QueueService {
             `/api/v1/queue/token/${token}`
         );
     }
+    /**
+     * Heartbeat 전송 - 사용자 활성 상태 유지
+     */
+    async updateHeartbeat(performanceId: number, scheduleId: number): Promise<ApiResponseString> {
+        console.log('Queue Service - Sending heartbeat for performance:', performanceId, 'schedule:', scheduleId);
+
+        const requestData: HeartbeatRequest = {
+            performanceId,
+            scheduleId
+        };
+
+        try {
+            const response = await apiClient.post<ApiResponseString>(
+                '/api/v1/queue/heartbeat',
+                requestData
+            );
+
+            // 성공시 재시도 카운트 리셋
+            this.heartbeatRetryCount = 0;
+            return response;
+        } catch (error: any) {
+            this.heartbeatRetryCount++;
+            console.error(`Heartbeat failed (attempt ${this.heartbeatRetryCount}):`, error);
+
+            if (this.heartbeatRetryCount >= this.maxHeartbeatRetries) {
+                throw new Error('연속된 heartbeat 실패로 세션이 만료될 수 있습니다.');
+            }
+
+            throw error;
+        }
+    }
 
     /**
-     * 폴링을 위한 지연 함수
+     * 세션 명시적 해제 (페이지 이탈 시)
      */
-    private delay(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    async releaseSession(performanceId: number, scheduleId: number, reason?: string): Promise<ApiResponseString> {
+        console.log('Queue Service - Releasing session for performance:', performanceId, 'schedule:', scheduleId);
+
+        const requestData: SessionReleaseRequest = {
+            performanceId,
+            scheduleId,
+            reason: reason || 'user_exit'
+        };
+
+        return apiClient.post<ApiResponseString>(
+            '/api/v1/queue/release-session',
+            requestData
+        );
     }
+
+    /**
+     * 세션 정리 (테스트용)
+     */
     async clearSessions(): Promise<{ success: boolean; message: string }> {
         try {
             const response = await apiClient.post('/api/v1/queue/clear-sessions');
@@ -180,6 +240,43 @@ class QueueService {
             console.error('Clear sessions failed:', error);
             throw new Error(error.response?.data?.message || 'Failed to clear sessions');
         }
+    }
+
+
+
+    /**
+     * Beacon을 통한 세션 해제 (페이지 언로드 시)
+     * 이 메서드는 브라우저가 페이지를 언로드할 때 사용됩니다.
+     */
+    sendSessionReleaseBeacon(performanceId: number, scheduleId: number): boolean {
+        if (!navigator.sendBeacon) {
+            console.warn('Beacon API not supported');
+            return false;
+        }
+
+        const data = JSON.stringify({
+            performanceId,
+            scheduleId,
+            reason: 'page_unload'
+        });
+
+        const url = `${apiClient.defaults.baseURL}/api/v1/queue/release-session`;
+
+        try {
+            const success = navigator.sendBeacon(url, data);
+            console.log('Beacon sent:', success);
+            return success;
+        } catch (error) {
+            console.error('Beacon send failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 지연 함수
+     */
+    private delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     /**
@@ -222,6 +319,57 @@ class QueueService {
         };
     }
 
+    /**
+     * 자동 재연결 기능이 있는 향상된 폴링
+     */
+    async pollQueueStatusWithRetry(
+        token: string,
+        onStatusUpdate: (status: QueueStatusResponse) => void,
+        onError: (error: string) => void,
+        pollInterval: number = 3000,
+        maxRetries: number = 5
+    ): Promise<() => void> {
+        let isPolling = true;
+        let retryCount = 0;
+
+        const poll = async () => {
+            while (isPolling && retryCount < maxRetries) {
+                try {
+                    const response = await this.getTokenStatus(token);
+                    if (response.success && response.data) {
+                        onStatusUpdate(response.data);
+                        retryCount = 0; // 성공시 재시도 카운트 리셋
+
+                        // ACTIVE 또는 완료 상태면 폴링 중단
+                        if (['ACTIVE', 'USED', 'EXPIRED', 'CANCELLED'].includes(response.data.status)) {
+                            break;
+                        }
+                    } else {
+                        retryCount++;
+                        console.warn(`Queue status check failed (attempt ${retryCount})`);
+                    }
+                } catch (error: any) {
+                    retryCount++;
+                    console.error(`Queue polling error (attempt ${retryCount}):`, error);
+
+                    if (retryCount >= maxRetries) {
+                        onError('대기열 상태 확인에 실패했습니다. 페이지를 새로고침해 주세요.');
+                        break;
+                    }
+                }
+
+                await this.delay(pollInterval * Math.min(retryCount + 1, 3)); // 점진적 백오프
+            }
+        };
+
+        // 폴링 시작
+        poll();
+
+        // 폴링 중단 함수 반환
+        return () => {
+            isPolling = false;
+        };
+    }
 }
 
 export const queueService = new QueueService();
