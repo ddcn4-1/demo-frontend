@@ -111,6 +111,21 @@ export function SeatSelection({
   const [selectorSelectedCodes, setSelectorSelectedCodes] = useState<Set<string>>(new Set());
   const [hoveredSeat, setHoveredSeat] = useState<string | null>(null);
 
+  // Helper functions moved up for useMemo access
+  const normalizeZoneValue = (value?: string | null) => {
+    if (value === undefined || value === null) return undefined;
+    const trimmed = String(value).trim();
+    return trimmed ? trimmed.toUpperCase() : undefined;
+  };
+
+  const getSectionIdentifier = (section: SeatMapSection, index: number) => {
+    return (
+      normalizeZoneValue(section.zone) ||
+      normalizeZoneValue(section.name) ||
+      `SECTION-${index + 1}`
+    );
+  };
+
   // Performance optimization: Cache for section-seat mapping using useMemo
   const sectionCache = useMemo(() => {
     if (!seatMap?.sections) return { rowToSection: new Map(), zoneToSections: new Map() };
@@ -581,12 +596,6 @@ export function SeatSelection({
 
   const SEAT_ZONE_SEPARATOR = "::";
 
-  const normalizeZoneValue = (value?: string | null) => {
-    if (value === undefined || value === null) return undefined;
-    const trimmed = String(value).trim();
-    return trimmed ? trimmed.toUpperCase() : undefined;
-  };
-
   const buildSeatCode = ({
     zone,
     rowLabel,
@@ -618,14 +627,6 @@ export function SeatSelection({
       rowLabel: rowLabelRaw.trim(),
       seatNumber: seatRaw.trim(),
     };
-  };
-
-  const getSectionIdentifier = (section: SeatMapSection, index: number) => {
-    return (
-      normalizeZoneValue(section.zone) ||
-      normalizeZoneValue(section.name) ||
-      `SECTION-${index + 1}`
-    );
   };
 
   const normalizeSeatCode = (row: string | number, num: string | number, zone?: string | null) => {
