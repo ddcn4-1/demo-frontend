@@ -111,16 +111,36 @@ export function SeatSelection({
   const [selectorSelectedCodes, setSelectorSelectedCodes] = useState<Set<string>>(new Set());
   const [hoveredSeat, setHoveredSeat] = useState<string | null>(null);
 
-  // Performance optimization: Cache for section-seat mapping
-  const [sectionCache, setSectionCache] = useState<{
-    rowToSection: Map<string, { section: SeatMapSection; index: number; grade: string }>;
-    zoneToSections: Map<string, { section: SeatMapSection; index: number }[]>;
-    lastSeatMapVersion: number;
-  }>({
-    rowToSection: new Map(),
-    zoneToSections: new Map(),
-    lastSeatMapVersion: 0,
-  });
+  // Performance optimization: Cache for section-seat mapping using useMemo
+  const sectionCache = useMemo(() => {
+    if (!seatMap?.sections) return { rowToSection: new Map(), zoneToSections: new Map() };
+
+    const rowToSection = new Map<string, { section: SeatMapSection; index: number; grade: string }>();
+    const zoneToSections = new Map<string, { section: SeatMapSection; index: number }[]>();
+
+    seatMap.sections.forEach((section, sectionIndex) => {
+      const grade = (section.grade as GradeKey) || 'A';
+      const zoneId = getSectionIdentifier(section, sectionIndex);
+
+      // Cache zone to sections mapping
+      if (!zoneToSections.has(zoneId)) {
+        zoneToSections.set(zoneId, []);
+      }
+      zoneToSections.get(zoneId)!.push({ section, index: sectionIndex });
+
+      // Cache all row labels for this section
+      for (let r = 0; r < section.rows; r++) {
+        const rowLabel = generateRowLabel(section.rowLabelFrom, r);
+        const cacheKey = zoneId ? `${zoneId}:${rowLabel}` : rowLabel;
+
+        if (!rowToSection.has(cacheKey)) {
+          rowToSection.set(cacheKey, { section, index: sectionIndex, grade });
+        }
+      }
+    });
+
+    return { rowToSection, zoneToSections };
+  }, [seatMap?.sections]);
 
   // Reset all seat selection-related states
   const resetSelection = useCallback(() => {
@@ -174,43 +194,6 @@ export function SeatSelection({
     return indexToAlpha(targetIndex, alphabet);
   }
 
-  // Build cache when seatMap changes
-  useEffect(() => {
-    if (!seatMap?.sections) return;
-
-    const currentVersion = Date.now(); // Simple version tracking
-    if (sectionCache.lastSeatMapVersion === currentVersion) return;
-
-    const rowToSection = new Map<string, { section: SeatMapSection; index: number; grade: string }>();
-    const zoneToSections = new Map<string, { section: SeatMapSection; index: number }[]>();
-
-    seatMap.sections.forEach((section, sectionIndex) => {
-      const grade = (section.grade as GradeKey) || 'A';
-      const zoneId = getSectionIdentifier(section, sectionIndex);
-
-      // Cache zone to sections mapping
-      if (!zoneToSections.has(zoneId)) {
-        zoneToSections.set(zoneId, []);
-      }
-      zoneToSections.get(zoneId)!.push({ section, index: sectionIndex });
-
-      // Cache all row labels for this section
-      for (let r = 0; r < section.rows; r++) {
-        const rowLabel = generateRowLabel(section.rowLabelFrom, r);
-        const cacheKey = zoneId ? `${zoneId}:${rowLabel}` : rowLabel;
-
-        if (!rowToSection.has(cacheKey)) {
-          rowToSection.set(cacheKey, { section, index: sectionIndex, grade });
-        }
-      }
-    });
-
-    setSectionCache({
-      rowToSection,
-      zoneToSections,
-      lastSeatMapVersion: currentVersion,
-    });
-  }, [seatMap]);
 
   const resolveSeatGrade = useCallback((seatId: string, sections: SeatMapSection[]): GradeKey | undefined => {
     const { rowLabel, seatNumber, zone } = parseSeatCode(seatId);
