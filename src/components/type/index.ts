@@ -192,6 +192,12 @@ export interface Booking {
   }>;
 }
 
+export interface AdminBooking extends Booking {
+  user_name: string;
+  user_email: string;
+  payment_status: 'PENDING' | 'COMPLETED' | 'FAILED';
+}
+
 export interface SystemMetrics {
   totalUsers: number;
   totalBookings: number;

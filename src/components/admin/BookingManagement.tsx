@@ -8,15 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Search, Filter, Download, Eye, XCircle, CheckCircle, Clock } from 'lucide-react';
 // import { serverAPI, Booking, mockUsers } from '../../data/mockServer';
-import { Booking, User, GetBookings200ResponseDto } from '../type/index'
+import { Booking, User, GetBookings200ResponseDto, AdminBooking } from '../type/index'
 import { serverAPI } from '../service/apiService'
 import { bookingService } from '../service/bookingService'
-
-interface AdminBooking extends Booking {
-  user_name: string;
-  user_email: string;
-  payment_status: 'PENDING' | 'COMPLETED' | 'FAILED';
-}
 
 interface BookingManagementProps {
   permissions: {
@@ -86,8 +80,76 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
     fetchBookings();
   }, []);
 
+  const searchBookings = async (searchParams?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    setLoading(true);
+
+    try {
+      const bookingsData = await bookingService.adminGetBookings({
+        status:
+          searchParams?.status === 'all'
+            ? ''
+            : searchParams?.status || '',
+        page: searchParams?.page || 1,
+        limit: searchParams?.limit || 20
+      });
+
+      const userData = await serverAPI.getUsers();
+      const userMap = new Map(userData.map(u => [u.user_id, u]));
+
+      // Convert Booking to AdminBooking by adding user data
+      const adminBookings: AdminBooking[] = bookingsData.bookings.map(booking => {
+        const user = userMap.get(booking.userId);
+
+        return {
+          booking_id: booking.bookingId,
+          booking_number: booking.bookingNumber,
+          user_id: booking.userId,
+          performance_id: booking.scheduleId,
+          performance_title: booking.performanceTitle || 'Unknown Performance', // 기본값 추가
+          venue_name: booking.venueName || 'Unknown Venue',                    // 기본값 추가
+          show_datetime: booking.showDate || new Date().toISOString(),         // 기본값 추가
+          seat_count: booking.seatCount || 0,                                  // 기본값 추가
+          seats: booking.seatCode ? [{
+            seat_id: 1,
+            seat_row: booking.seatZone || '',
+            seat_number: booking.seatCode || '',
+            seat_grade: booking.seatZone || 'General',
+            seat_price: booking.totalAmount || 0
+          }] : [],
+          total_amount: booking.totalAmount || 0,                              // 기본값 추가
+          status: booking.status,
+          booked_at: booking.bookedAt || new Date().toISOString(),            // 기본값 추가
+
+          user_name: user?.name || 'Unknown User',
+          user_email: user?.email || 'unknown@email.com',
+          payment_status: (booking.status === 'CONFIRMED' ? 'COMPLETED' :
+            booking.status === 'PENDING' ? 'PENDING' : 'COMPLETED') as 'PENDING' | 'COMPLETED' | 'FAILED'
+        };
+      });
+
+      setFilteredBookings(adminBookings);
+    } catch (error) {
+      console.error('Failed to search bookings: ', error)
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    if (statusFilter !== 'all') {
+      searchBookings({ status: statusFilter });
+      return;
+    }
+
     let filtered = bookings;
+
+    // if (statusFilter !== 'all') {
+    //   filtered = filtered.filter(booking => booking.status === statusFilter);
+    // }
 
     // Search filter
     if (searchTerm) {
@@ -99,18 +161,8 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
       );
     }
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(booking => booking.status === statusFilter);
-    }
-
-    // Payment filter
-    if (paymentFilter !== 'all') {
-      filtered = filtered.filter(booking => booking.payment_status === paymentFilter);
-    }
-
     setFilteredBookings(filtered);
-  }, [bookings, searchTerm, statusFilter, paymentFilter]);
+  }, [bookings, searchTerm, statusFilter]);
 
   const handleCancelBooking = (bookingId: number) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
