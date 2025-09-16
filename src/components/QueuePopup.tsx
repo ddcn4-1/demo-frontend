@@ -8,22 +8,16 @@ import {
 } from './ui/dialog';
 import { Progress } from './ui/progress';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
-import { Users, Clock, Loader2, CheckCircle, XCircle } from 'lucide-react';
-import { Performance, PerformanceSchedule } from '../data/mockServer';
+import { Users, Clock, Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import {queueService, QueueStatusResponse} from "./service/queueService";
+import {Performance, PerformanceSchedule} from "./type";
 
 export interface QueueStatus {
-    queueId: string;
-    position: number; // 0 means it's your turn
+    token: string;
+    position: number;
     totalInQueue: number;
-    estimatedWaitTime: number; // in seconds
-    status:
-        | 'WAITING_FOR_CONNECTION'
-        | 'ENTER_QUEUE'
-        | 'WAITING'
-        | 'AVAILABLE'
-        | 'EXPIRED'
-        | 'COMPLETED';
+    estimatedWaitTime: number;
+    status: 'WAITING_FOR_CONNECTION' | 'ENTER_QUEUE' | 'WAITING' | 'AVAILABLE' | 'EXPIRED' | 'COMPLETED';
     sessionEndTime?: Date;
 }
 
@@ -32,33 +26,31 @@ interface QueuePopupProps {
     performance: Performance;
     selectedSchedule?: PerformanceSchedule;
     onClose: () => void;
-    onQueueComplete: (
-        performance: Performance,
-        schedule?: PerformanceSchedule
-    ) => void;
+    onQueueComplete: (performance: Performance, schedule?: PerformanceSchedule) => void;
     onQueueExpired: () => void;
 }
 
 export function QueuePopup({
-    isOpen,
-    performance,
-    selectedSchedule,
-    onClose,
-    onQueueComplete,
-    onQueueExpired,
-}: QueuePopupProps) {
-    const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
+                               isOpen,
+                               performance,
+                               selectedSchedule,
+                               onClose,
+                               onQueueComplete,
+                               onQueueExpired,
+                           }: QueuePopupProps) {
+    const [queueStatus, setQueueStatus] = useState<QueueStatusResponse | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<number>(0);
+    const [error, setError] = useState<string | null>(null);
+    const [isInitializing, setIsInitializing] = useState(false);
+
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
-    const queuePollRef = useRef<NodeJS.Timeout | null>(null);
+    const stopPollingRef = useRef<(() => void) | null>(null);
 
     // Format time in MM:SS format
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs
-            .toString()
-            .padStart(2, '0')}`;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
     // Initialize queue when popup opens
@@ -75,39 +67,19 @@ export function QueuePopup({
         return cleanup;
     }, [isOpen]);
 
-    // Poll queue status
+    // Handle session timer when active
     useEffect(() => {
-        if (queueStatus && queueStatus.status === 'WAITING') {
-            queuePollRef.current = setInterval(() => {
-                pollQueueStatus();
-            }, 2000); // Poll every 2 seconds
-
-            return () => {
-                if (queuePollRef.current) {
-                    clearInterval(queuePollRef.current);
-                }
-            };
-        }
-    }, [queueStatus]);
-
-    // Handle session timer when available
-    useEffect(() => {
-        if (queueStatus?.status === 'AVAILABLE' && queueStatus.sessionEndTime) {
+        if (queueStatus?.status === 'ACTIVE' && queueStatus.bookingExpiresAt) {
             const updateTimer = () => {
                 const now = new Date().getTime();
-                const endTime = new Date(queueStatus.sessionEndTime!).getTime();
-                const remaining = Math.max(
-                    0,
-                    Math.floor((endTime - now) / 1000)
-                );
+                const endTime = new Date(queueStatus.bookingExpiresAt!).getTime();
+                const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
 
                 setTimeRemaining(remaining);
 
                 if (remaining === 0) {
                     // Session expired
-                    setQueueStatus((prev) =>
-                        prev ? { ...prev, status: 'EXPIRED' } : null
-                    );
+                    setQueueStatus(prev => prev ? { ...prev, status: 'EXPIRED' } : null);
                 }
             };
 
@@ -120,187 +92,191 @@ export function QueuePopup({
                 }
             };
         }
-    }, [queueStatus?.status, queueStatus?.sessionEndTime]);
+    }, [queueStatus?.status, queueStatus?.bookingExpiresAt]);
 
     // Handle status changes
     useEffect(() => {
-        if (queueStatus?.status === 'AVAILABLE' && queueStatus.position === 0) {
-            // User reached front of queue, auto-proceed after 1 second
+        if (queueStatus?.status === 'ACTIVE' && queueStatus.isActiveForBooking) {
+            // User can now book - proceed after showing message for 2 seconds
             setTimeout(() => {
                 onQueueComplete(performance, selectedSchedule);
                 cleanup();
-            }, 1000);
+            }, 2000);
         } else if (queueStatus?.status === 'EXPIRED') {
             // Queue expired
             setTimeout(() => {
                 onQueueExpired();
                 cleanup();
-            }, 2000);
+            }, 3000);
         }
-    }, [queueStatus?.status, queueStatus?.position]);
+    }, [queueStatus?.status, queueStatus?.isActiveForBooking]);
 
     const cleanup = () => {
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
         }
-        if (queuePollRef.current) {
-            clearInterval(queuePollRef.current);
-            queuePollRef.current = null;
+        if (stopPollingRef.current) {
+            stopPollingRef.current();
+            stopPollingRef.current = null;
         }
         setQueueStatus(null);
         setTimeRemaining(0);
+        setError(null);
+        setIsInitializing(false);
     };
 
     const initializeQueue = async () => {
-        console.log(
-            'Initializing queue for performance:',
-            performance.performance_id
-        );
+        console.log('Initializing queue for performance:', performance.performance_id);
 
-        // For demo reliability, always use the fallback queue system
-        // This ensures the queue works consistently for testing
-        const mockStatus = {
-            queueId: `queue_${Date.now()}_${performance.performance_id}`,
-            position: Math.floor(Math.random() * 8) + 1, // 1-8 people ahead
-            totalInQueue: Math.floor(Math.random() * 30) + 15, // 15-45 total
-            estimatedWaitTime: Math.floor(Math.random() * 240) + 60, // 1-5 minutes
-            status: 'WAITING' as const,
+        setIsInitializing(true);
+        setError(null);
+
+        try {
+            // 먼저 대기열 필요성 확인 (selectedSchedule가 있는 경우)
+            if (selectedSchedule) {
+                console.log('Checking queue requirement for schedule:', selectedSchedule.schedule_id);
+
+                const checkResponse = await queueService.checkQueueRequirement(
+                    performance.performance_id,
+                    selectedSchedule.schedule_id
+                );
+
+                if (checkResponse.success && checkResponse.data.canProceedDirectly) {
+                    // 바로 진입 가능 - 즉시 완료 처리
+                    console.log('Direct access granted - proceeding immediately');
+                    // 즉시 진행 (로딩 표시 없이)
+                    onQueueComplete(performance, selectedSchedule);
+                    cleanup();
+                    return;
+                }
+
+                console.log('Queue required - proceeding with token issuance');
+            }
+
+            // 대기열 필요 - 토큰 발급 요청
+            const response = await queueService.issueToken(performance.performance_id);
+
+            console.log('Token issue response:', response);
+
+            if (response.success && response.data) {
+                const tokenData = response.data;
+
+                // QueueStatusResponse 형태로 변환
+                const statusData: QueueStatusResponse = {
+                    token: tokenData.token,
+                    status: tokenData.status,
+                    positionInQueue: tokenData.positionInQueue,
+                    estimatedWaitTime: tokenData.estimatedWaitTime,
+                    isActiveForBooking: tokenData.status === 'ACTIVE',
+                    bookingExpiresAt: tokenData.bookingExpiresAt,
+                    performanceTitle: performance.title
+                };
+
+                setQueueStatus(statusData);
+
+                // 대기 상태이면 폴링 시작
+                if (tokenData.status === 'WAITING') {
+                    startPolling(tokenData.token);
+                }
+            } else {
+                throw new Error(response.error || 'Failed to issue queue token');
+            }
+        } catch (error: any) {
+            console.error('Failed to initialize queue:', error);
+            setError(error.message || 'Failed to join queue. Please try again.');
+        } finally {
+            setIsInitializing(false);
+        }
+    };
+
+    const startPolling = (token: string) => {
+        console.log('Starting queue polling for token:', token);
+
+        const onStatusUpdate = (status: QueueStatusResponse) => {
+            console.log('Queue status update:', status);
+            setQueueStatus(status);
         };
 
-        console.log('Using demo queue status:', mockStatus);
-        setQueueStatus(mockStatus);
-
-        // Optional: Still try the real API in the background for testing, but don't block
-        try {
-            const authToken = localStorage.getItem('mockAuthToken');
-            if (authToken) {
-                const { serverAPI } = await import('../data/mockServer');
-                const realQueueStatus = await serverAPI.joinQueue(
-                    performance.performance_id,
-                    selectedSchedule?.schedule_id
-                );
-                console.log(
-                    'Real API queue status (background):',
-                    realQueueStatus
-                );
-                // Use real status if available and valid
-                if (realQueueStatus && realQueueStatus.queueId) {
-                    setQueueStatus(realQueueStatus);
-                }
-            }
-        } catch (error) {
-            console.log(
-                'Background API attempt failed (this is normal for demo):',
-                error.message
-            );
-            // Keep using the fallback status - no error handling needed
-        }
+        // 폴링 시작 (3초 간격)
+        queueService.pollQueueStatus(token, onStatusUpdate, 3000)
+            .then(stopFunction => {
+                stopPollingRef.current = stopFunction;
+            })
+            .catch(error => {
+                console.error('Polling setup error:', error);
+            });
     };
 
-    const pollQueueStatus = async () => {
-        if (!queueStatus?.queueId) return;
-
-        // For demo reliability, always use mock progress updates
-        // This ensures consistent queue behavior for testing
-        setQueueStatus((prev) => {
-            if (!prev) return null;
-
-            // Simulate queue progress - 30% chance to move forward each poll
-            const shouldProgress = Math.random() > 0.7;
-            const newPosition = shouldProgress
-                ? Math.max(0, prev.position - 1)
-                : prev.position;
-            const newStatus = newPosition === 0 ? 'AVAILABLE' : prev.status;
-
-            return {
-                ...prev,
-                position: newPosition,
-                status: newStatus,
-                estimatedWaitTime: Math.max(0, newPosition * 30), // Update estimated time
-                sessionEndTime:
-                    newStatus === 'AVAILABLE'
-                        ? new Date(Date.now() + 10 * 60 * 1000)
-                        : undefined, // 10 minutes from now
-            };
-        });
-
-        // Optional: Try real API in background but don't let it break the experience
-        try {
-            const authToken = localStorage.getItem('mockAuthToken');
-            if (authToken && queueStatus.queueId.startsWith('queue_real_')) {
-                const { serverAPI } = await import('../data/mockServer');
-                const updatedStatus = await serverAPI.getQueueStatus(
-                    queueStatus.queueId
-                );
-                console.log(
-                    'Real API poll result (background):',
-                    updatedStatus
-                );
-                // Only use real status if it's valid
-                if (
-                    updatedStatus &&
-                    typeof updatedStatus.position === 'number'
-                ) {
-                    setQueueStatus(updatedStatus);
-                }
+    const handleLeaveQueue = async () => {
+        if (queueStatus?.token) {
+            try {
+                await queueService.cancelToken(queueStatus.token);
+            } catch (error) {
+                console.error('Failed to cancel token:', error);
             }
-        } catch (error) {
-            console.log(
-                'Background API poll failed (this is normal for demo):',
-                error.message
-            );
-            // Continue with mock progress - no error handling needed
         }
-    };
-
-    const handleLeaveQueue = () => {
-        // Optional: Call API to leave queue
         cleanup();
         onClose();
     };
 
+    const handleRetry = () => {
+        setError(null);
+        setQueueStatus(null);
+        initializeQueue();
+    };
+
     const getStatusIcon = () => {
+        if (error) {
+            return <XCircle className="w-8 h-8 text-red-500" />;
+        }
+
         switch (queueStatus?.status) {
             case 'WAITING':
-                return (
-                    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                );
-            case 'AVAILABLE':
+                return <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />;
+            case 'ACTIVE':
                 return <CheckCircle className="w-8 h-8 text-green-500" />;
             case 'EXPIRED':
                 return <XCircle className="w-8 h-8 text-red-500" />;
+            case 'CANCELLED':
+                return <AlertTriangle className="w-8 h-8 text-yellow-500" />;
             default:
                 return <Users className="w-8 h-8 text-muted-foreground" />;
         }
     };
 
     const getStatusMessage = () => {
+        if (error) {
+            return error;
+        }
+
+        if (isInitializing) {
+            return 'Joining queue...';
+        }
+
         switch (queueStatus?.status) {
-            case 'WAITING_FOR_CONNECTION':
-                return 'Connecting to queue...';
-            case 'ENTER_QUEUE':
-                return 'Joining queue...';
             case 'WAITING':
-                if (queueStatus.position === 0) {
+                if (queueStatus.positionInQueue === 0) {
                     return "It's your turn! Proceeding to seat selection...";
                 }
-                return `${queueStatus.position} ${
-                    queueStatus.position === 1 ? 'person' : 'people'
+                return `${queueStatus.positionInQueue} ${
+                    queueStatus.positionInQueue === 1 ? 'person' : 'people'
                 } ahead of you`;
-            case 'AVAILABLE':
+            case 'ACTIVE':
                 return 'Your session is active! You can now select seats.';
             case 'EXPIRED':
                 return 'Your queue session has expired. Please try again.';
+            case 'CANCELLED':
+                return 'Queue session was cancelled.';
             default:
-                return 'Preparing queue...';
+                return 'Connecting to queue...';
         }
     };
 
+    // 전체 대기열 크기 추정 (실제로는 백엔드에서 제공해야 함)
+    const estimatedTotalQueue = queueStatus ? queueStatus.positionInQueue + Math.floor(Math.random() * 50) + 20 : 100;
     const progressPercentage = queueStatus
-        ? ((queueStatus.totalInQueue - queueStatus.position) /
-              queueStatus.totalInQueue) *
-          100
+        ? ((estimatedTotalQueue - queueStatus.positionInQueue) / estimatedTotalQueue) * 100
         : 0;
 
     return (
@@ -312,9 +288,8 @@ export function QueuePopup({
                         Queue System
                     </DialogTitle>
                     <DialogDescription>
-                        Please wait in the queue to secure your seat selection
-                        session. Your position and estimated wait time will be
-                        displayed below.
+                        {performance.title} 예매를 위해 대기열에 참여하고 있습니다.
+                        현재 위치와 예상 대기시간을 확인하세요.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -330,55 +305,58 @@ export function QueuePopup({
                                 {getStatusMessage()}
                             </p>
 
-                            {queueStatus &&
-                                queueStatus.status === 'WAITING' &&
-                                queueStatus.position > 0 && (
-                                    <div className="space-y-3">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-primary">
-                                                {queueStatus.position} /{' '}
-                                                {queueStatus.totalInQueue}
-                                            </div>
-                                            <p className="text-sm text-muted-foreground">
-                                                People in queue
-                                            </p>
+                            {queueStatus && queueStatus.status === 'WAITING' && queueStatus.positionInQueue > 0 && (
+                                <div className="space-y-3">
+                                    <div className="text-center">
+                                        <div className="text-2xl font-bold text-primary">
+                                            {queueStatus.positionInQueue}
                                         </div>
-
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between text-sm">
-                                                <span>Queue Progress</span>
-                                                <span>
-                                                    {Math.round(
-                                                        progressPercentage
-                                                    )}
-                                                    %
-                                                </span>
-                                            </div>
-                                            <Progress
-                                                value={progressPercentage}
-                                                className="h-2"
-                                            />
-                                        </div>
-
-                                        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                                            <Clock className="w-4 h-4" />
-                                            <span>
-                                                Estimated wait:{' '}
-                                                {Math.ceil(
-                                                    queueStatus.estimatedWaitTime /
-                                                        60
-                                                )}{' '}
-                                                minutes
-                                            </span>
-                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                            대기 순번
+                                        </p>
                                     </div>
-                                )}
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span>진행률</span>
+                                            <span>{Math.round(progressPercentage)}%</span>
+                                        </div>
+                                        <Progress value={progressPercentage} className="h-2" />
+                                    </div>
+
+                                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                                        <Clock className="w-4 h-4" />
+                                        <span>
+                                            예상 대기시간: {Math.ceil(queueStatus.estimatedWaitTime / 60)}분
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {queueStatus?.status === 'ACTIVE' && timeRemaining > 0 && (
+                                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                                    <p className="text-sm text-green-700 dark:text-green-300 mb-2">
+                                        예매 세션이 활성화되었습니다!
+                                    </p>
+                                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-green-800 dark:text-green-200">
+                                        <Clock className="w-4 h-4" />
+                                        <span>남은 시간: {formatTime(timeRemaining)}</span>
+                                    </div>
+                                </div>
+                            )}
 
                             {queueStatus?.status === 'EXPIRED' && (
                                 <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
                                     <p className="text-sm text-red-700 dark:text-red-300">
-                                        Queue session expired. You can try
-                                        joining the queue again.
+                                        세션이 만료되었습니다. 다시 대기열에 참여할 수 있습니다.
+                                    </p>
+                                </div>
+                            )}
+
+                            {error && (
+                                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                                    <p className="text-sm text-red-700 dark:text-red-300">
+                                        {error}
                                     </p>
                                 </div>
                             )}
@@ -387,20 +365,27 @@ export function QueuePopup({
 
                     {/* Actions */}
                     <div className="flex gap-2">
+                        {error && (
+                            <Button onClick={handleRetry} className="flex-1">
+                                다시 시도
+                            </Button>
+                        )}
+
                         {queueStatus?.status === 'WAITING' && (
                             <Button
                                 variant="outline"
                                 onClick={handleLeaveQueue}
                                 className="flex-1"
                             >
-                                Leave Queue
+                                대기열 나가기
                             </Button>
                         )}
 
                         {(queueStatus?.status === 'EXPIRED' ||
-                            queueStatus?.status === 'COMPLETED') && (
+                            queueStatus?.status === 'CANCELLED' ||
+                            error) && (
                             <Button onClick={onClose} className="flex-1">
-                                Close
+                                닫기
                             </Button>
                         )}
                     </div>
