@@ -8,8 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Search, Filter, Download, Eye, XCircle, CheckCircle, Clock } from 'lucide-react';
 // import { serverAPI, Booking, mockUsers } from '../../data/mockServer';
-import { Booking, User, GetBookings200ResponseDto, AdminBooking } from '../type/index'
-import { serverAPI } from '../service/apiService'
+import { BookingDto, User, GetBookings200ResponseDto, AdminBooking } from '../type/index'
+import { serverAPI, } from '../service/apiService'
 import { bookingService } from '../service/bookingService'
 
 interface BookingManagementProps {
@@ -17,6 +17,37 @@ interface BookingManagementProps {
     canViewBookings: boolean;
   };
 }
+
+// admin booking data transform util function
+const transformAdminBookingData = (
+  response: BookingDto,
+  userMap: Map<number, User>
+): AdminBooking => {
+  const user = userMap.get(response.userId);
+
+  const transformed: AdminBooking = {
+    booking_id: response.bookingId,
+    booking_number: response.bookingNumber,
+    user_id: response.userId,
+    performance_id: response.scheduleId,
+    performance_title: response.performanceTitle,
+    venue_name: response.venueName,
+    show_datetime: response.showDate,
+    seat_count: response.seatCount,
+    total_amount: response.totalAmount,
+    status: response.status,
+    booked_at: response.bookedAt,
+    cancelled_at: response.cancelledAt,
+    cancellation_reason: response.cancellationReason,
+    seats: response.seats,
+    user_name: user?.name || 'Unknown User',
+    user_email: user?.email || 'unknown@email.com',
+    payment_status: (response.status === 'CONFIRMED' ? 'COMPLETED' :
+      response.status === 'PENDING' ? 'PENDING' : 'COMPLETED') as 'PENDING' | 'COMPLETED' | 'FAILED'
+  };
+
+  return transformed;
+};
 
 export function BookingManagement({ permissions }: BookingManagementProps) {
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
@@ -27,46 +58,51 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null);
 
+  const searchBookings = async (searchParams?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<AdminBooking[]> => {
+    try {
+      const bookingsData = await bookingService.adminGetBookings({
+        status:
+          searchParams?.status === 'all'
+            ? ''
+            : searchParams?.status || '',
+        page: searchParams?.page || 1,
+        limit: searchParams?.limit || 20
+      });
+      const userData = await serverAPI.getUsers();
+      const userMap = new Map(userData.map(u => [u.user_id, u]));
+
+      // Convert Booking to AdminBooking by adding user data
+      const adminBookings: AdminBooking[] = bookingsData.bookings.map(booking =>
+        transformAdminBookingData(booking, userMap)
+      );
+
+      return adminBookings;
+
+    } catch (error) {
+      console.error('Failed to search bookings: ', error);
+      return [];
+    }
+  };
+
+  const filterBookingsBySearchTerm = (bookings: AdminBooking[], searchTerm: string): AdminBooking[] => {
+    if (!searchTerm) return bookings;
+
+    return bookings.filter(booking =>
+      booking.booking_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.user_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.performance_title || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const bookingData = await bookingService.adminGetBookings();
-
-        // TODO : 이후 유저 상세 조회 API 만들어서 백엔드에서 하나만 조회하도록 변경
-        // 현재 전체 데이터 읽어와서 frontend에서 필터
-        const userData = await serverAPI.getUsers();
-        const userMap = new Map(userData.map(u => [u.user_id, u]));
-
-        // Convert Booking to AdminBooking by adding user data
-        const adminBookings: AdminBooking[] = bookingData.bookings.map(booking => {
-          const user = userMap.get(booking.userId);
-
-          return {
-            booking_id: booking.bookingId,
-            booking_number: booking.bookingNumber,
-            user_id: booking.userId,
-            performance_id: booking.scheduleId,
-            performance_title: booking.performanceTitle || 'Unknown Performance', // 기본값 추가
-            venue_name: booking.venueName || 'Unknown Venue',                    // 기본값 추가
-            show_datetime: booking.showDate || new Date().toISOString(),         // 기본값 추가
-            seat_count: booking.seatCount || 0,                                  // 기본값 추가
-            seats: booking.seatCode ? [{
-              seat_id: 1,
-              seat_row: booking.seatZone || '',
-              seat_number: booking.seatCode || '',
-              seat_grade: booking.seatZone || 'General',
-              seat_price: booking.totalAmount || 0
-            }] : [],
-            total_amount: booking.totalAmount || 0,                              // 기본값 추가
-            status: booking.status,
-            booked_at: booking.bookedAt || new Date().toISOString(),            // 기본값 추가
-
-            user_name: user?.name || 'Unknown User',
-            user_email: user?.email || 'unknown@email.com',
-            payment_status: (booking.status === 'CONFIRMED' ? 'COMPLETED' :
-              booking.status === 'PENDING' ? 'PENDING' : 'COMPLETED') as 'PENDING' | 'COMPLETED' | 'FAILED'
-          };
-        });
+        const adminBookings: AdminBooking[] = await searchBookings();
 
         setBookings(adminBookings);
         setFilteredBookings(adminBookings);
@@ -80,88 +116,27 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
     fetchBookings();
   }, []);
 
-  const searchBookings = async (searchParams?: {
-    status?: string;
-    page?: number;
-    limit?: number;
-  }) => {
-    setLoading(true);
-
-    try {
-      const bookingsData = await bookingService.adminGetBookings({
-        status:
-          searchParams?.status === 'all'
-            ? ''
-            : searchParams?.status || '',
-        page: searchParams?.page || 1,
-        limit: searchParams?.limit || 20
-      });
-
-      const userData = await serverAPI.getUsers();
-      const userMap = new Map(userData.map(u => [u.user_id, u]));
-
-      // Convert Booking to AdminBooking by adding user data
-      const adminBookings: AdminBooking[] = bookingsData.bookings.map(booking => {
-        const user = userMap.get(booking.userId);
-
-        return {
-          booking_id: booking.bookingId,
-          booking_number: booking.bookingNumber,
-          user_id: booking.userId,
-          performance_id: booking.scheduleId,
-          performance_title: booking.performanceTitle || 'Unknown Performance', // 기본값 추가
-          venue_name: booking.venueName || 'Unknown Venue',                    // 기본값 추가
-          show_datetime: booking.showDate || new Date().toISOString(),         // 기본값 추가
-          seat_count: booking.seatCount || 0,                                  // 기본값 추가
-          seats: booking.seatCode ? [{
-            seat_id: 1,
-            seat_row: booking.seatZone || '',
-            seat_number: booking.seatCode || '',
-            seat_grade: booking.seatZone || 'General',
-            seat_price: booking.totalAmount || 0
-          }] : [],
-          total_amount: booking.totalAmount || 0,                              // 기본값 추가
-          status: booking.status,
-          booked_at: booking.bookedAt || new Date().toISOString(),            // 기본값 추가
-
-          user_name: user?.name || 'Unknown User',
-          user_email: user?.email || 'unknown@email.com',
-          payment_status: (booking.status === 'CONFIRMED' ? 'COMPLETED' :
-            booking.status === 'PENDING' ? 'PENDING' : 'COMPLETED') as 'PENDING' | 'COMPLETED' | 'FAILED'
-        };
-      });
-
-      setFilteredBookings(adminBookings);
-    } catch (error) {
-      console.error('Failed to search bookings: ', error)
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (statusFilter !== 'all') {
-      searchBookings({ status: statusFilter });
-      return;
-    }
+    const handleBookingFilter = async () => {
+      if (statusFilter !== 'all') {
+        try {
+          const serverFilteredBookings = await searchBookings({ status: statusFilter });
 
-    let filtered = bookings;
+          const finalFilteredBookings = filterBookingsBySearchTerm(serverFilteredBookings, searchTerm);
 
-    // if (statusFilter !== 'all') {
-    //   filtered = filtered.filter(booking => booking.status === statusFilter);
-    // }
+          setFilteredBookings(finalFilteredBookings);
+        } catch (error) {
+          console.error('Failed to filter bookings:', error);
+          setFilteredBookings([]);
+        }
+        return;
+      }
 
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(booking =>
-        booking.booking_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.user_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.performance_title.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
+      const localFilteredBookings = filterBookingsBySearchTerm(bookings, searchTerm);
+      setFilteredBookings(localFilteredBookings);
+    };
 
-    setFilteredBookings(filtered);
+    handleBookingFilter();
   }, [bookings, searchTerm, statusFilter]);
 
   const handleCancelBooking = (bookingId: number) => {
@@ -431,7 +406,7 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
                   <TableCell>
                     <div className="font-medium">{booking.seat_count} seats</div>
                     <div className="text-xs text-muted-foreground">
-                      {booking.seats.map(s => `${s.seat_row}${s.seat_number}`).join(', ')}
+                      {(booking.seats || []).map(s => `${s.rowLabel}${s.colNum}`).join(', ')}
                     </div>
                   </TableCell>
                   <TableCell>{formatPrice(booking.total_amount)}</TableCell>
@@ -490,10 +465,10 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
                               <div>
                                 <p className="text-sm text-muted-foreground mb-2">Seat Details</p>
                                 <div className="bg-muted rounded-lg p-3">
-                                  {selectedBooking.seats.map((seat, index) => (
+                                  {(selectedBooking.seats || []).map((seat, index) => (
                                     <div key={index} className="flex justify-between text-sm">
-                                      <span>{seat.seat_row}{seat.seat_number} ({seat.seat_grade})</span>
-                                      <span>{formatPrice(seat.seat_price)}</span>
+                                      <span>{seat.rowLabel}{seat.colNum} ({seat.grade})</span>
+                                      <span>{formatPrice(seat.seatPrice)}</span>
                                     </div>
                                   ))}
                                   <div className="border-t mt-2 pt-2 flex justify-between font-medium">

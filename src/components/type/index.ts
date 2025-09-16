@@ -172,9 +172,9 @@ export interface Booking {
   booking_number: string;
   user_id: number;
   performance_id: number;
-  performance_title: string;
-  venue_name: string;
-  show_datetime: string;
+  performance_title?: string;
+  venue_name?: string;
+  show_datetime?: string;
   seat_count: number;
   total_amount: number;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
@@ -183,13 +183,7 @@ export interface Booking {
   cancellation_reason?: string;
   refund_status?: 'PENDING' | 'PROCESSING' | 'COMPLETED';
   refund_amount?: number;
-  seats: Array<{
-    seat_id: number;
-    seat_row: string;
-    seat_number: string;
-    seat_grade: string;
-    seat_price: number;
-  }>;
+  seats?: BookingSeatDto[];
 }
 
 export interface AdminBooking extends Booking {
@@ -332,6 +326,10 @@ export interface BookingSeatDto {
   bookingId: number;
   seatId: number;
   seatPrice: number;
+  grade: string;
+  zone: string;
+  rowLabel: string;
+  colNum: string;
   createdAt: string;
 }
 
