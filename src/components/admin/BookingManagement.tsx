@@ -128,6 +128,7 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
         } catch (error) {
           console.error('Failed to filter bookings:', error);
           setFilteredBookings([]);
+        } finally {
         }
         return;
       }

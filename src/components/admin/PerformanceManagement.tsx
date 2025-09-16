@@ -12,199 +12,23 @@ import { Plus, Edit, Trash2, Calendar, MapPin, Users } from 'lucide-react';
 import { Performance, PerformanceRequest, Venue } from '../type/index';
 import { serverAPI } from '../service/apiService';
 
-export function PerformanceManagement() {
-  const [performances, setPerformances] = useState<Performance[]>([]);
-  const [venues, setVenues] = useState<Venue[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingPerformance, setEditingPerformance] = useState<Performance | null>(null);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    theme: '',
-    poster_url: '',
-    start_date: '',
-    end_date: '',
-    running_time: 0,
-    base_price: 0,
-    venue_id: 0
-  });
-
-  // 초기화
-  useEffect(() => {
-    const fetchPerfomances = async () => {
-      try {
-        setLoading(true);
-
-        const venueData = await serverAPI.getVenues();
-        const performanceData = await serverAPI.getPerformances();
-
-        setVenues(venueData);
-        setPerformances(performanceData);
-      } catch (error) {
-        console.error('공연 데이터를 가져오는데 실패했습니다: ', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPerfomances();
-  }, []);
-
-  const handleCreatePerformance = async () => {
-    try {
-      setLoading(true);
-
-      const newPerformance = await serverAPI.createPerformance({
-        venueId: formData.venue_id,
-        title: formData.title,
-        description: formData.description,
-        theme: formData.theme,
-        posterUrl: formData.poster_url,
-        basePrice: formData.base_price,
-        startDate: formData.start_date,
-        endDate: formData.end_date,
-        runningTime: formData.running_time,
-        status: "UPCOMING"
-      });
-
-      if (newPerformance !== undefined) {
-        setPerformances(prev => [...prev, newPerformance]);
-        setShowCreateDialog(false);
-        resetForm();
-        console.log('공연 생성 성공');
-      } else {
-        throw new Error('공연 생성 실패');
-      }
-    } catch (error) {
-      console.error('공연 생성 실패: ', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdatePerformance = async () => {
-    if (!editingPerformance) return;
-
-    try {
-      setLoading(true);
-
-      const updateRequestBody: PerformanceRequest = {
-        venueId: formData.venue_id,
-        title: formData.title,
-        description: formData.description || '',
-        theme: formData.theme,
-        posterUrl: formData.poster_url,
-        basePrice: formData.base_price,
-        startDate: formData.start_date,
-        endDate: formData.end_date,
-        runningTime: formData.running_time,
-        status: editingPerformance.status
-      }
-
-      const updatedPerformance = await serverAPI.updatePerformance(editingPerformance.performance_id, updateRequestBody);
-
-      if (updatedPerformance !== undefined) {
-
-        setPerformances(prev => prev.map(perf =>
-          perf.performance_id === updatedPerformance.performance_id
-            ? {
-              ...perf,
-              ...formData,
-              venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || perf.venue_name
-            }
-            : perf
-        ));
-
-        setEditingPerformance(null);
-        resetForm();
-
-        console.log('공연 수정 성공');
-
-      } else {
-        throw new Error('공연 수정 실패');
-      }
-    } catch (error) {
-      console.error('공연 수정 실패: ', error);
-    } finally {
-      setLoading(false);
-    }
-
-  };
-
-  const handleDeletePerformance = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this performance?')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const success = await serverAPI.deletePerformance(id);
-
-      if (success) {
-        setPerformances(prev => prev.filter(perf => perf.performance_id !== id));
-        console.log('공연 삭제 성공');
-
-      } else {
-        throw new Error('공연 삭제 실패');
-      }
-    } catch (error) {
-      console.error('공연 삭제 실패: ', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditPerformance = (performance: Performance) => {
-    setEditingPerformance(performance);
-
-    setFormData({
-      title: performance.title,
-      description: performance.description || '',
-      theme: performance.theme,
-      poster_url: performance.poster_url,
-      start_date: performance.start_date,
-      end_date: performance.end_date,
-      running_time: performance.running_time,
-      base_price: performance.base_price,
-      venue_id: performance.venue_id
-    });
-  };
-
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      description: '',
-      theme: '',
-      poster_url: '',
-      start_date: '',
-      end_date: '',
-      running_time: 0,
-      base_price: 0,
-      venue_id: 0
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ONGOING': return 'default';
-      case 'UPCOMING': return 'secondary';
-      case 'ENDED': return 'outline';
-      case 'CANCELLED': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ko-KR').format(price) + '원';
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ko-KR');
-  };
-
-  const PerformanceForm = ({ isEdit = false }: { isEdit?: boolean }) => (
+// PerformanceForm을 별도 컴포넌트로 분리
+function PerformanceForm({
+  formData,
+  setFormData,
+  venues,
+  onSubmit,
+  onCancel,
+  isEdit = false
+}: {
+  formData: any;
+  setFormData: (data: any) => void;
+  venues: Venue[];
+  onSubmit: () => void;
+  onCancel: () => void;
+  isEdit?: boolean;
+}) {
+  return (
     <div className="space-y-4">
       <div>
         <Label htmlFor="title">Title</Label>
@@ -318,21 +142,198 @@ export function PerformanceManagement() {
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={() => {
-          setShowCreateDialog(false);
-          setEditingPerformance(null);
-          resetForm();
-        }}>
+        <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button onClick={isEdit ? handleUpdatePerformance : handleCreatePerformance}>
+        <Button onClick={onSubmit}>
           {isEdit ? 'Update' : 'Create'} Performance
         </Button>
       </div>
     </div>
   );
+}
 
-  if (loading) {
+export function PerformanceManagement() {
+  const [performances, setPerformances] = useState<Performance[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [editingPerformance, setEditingPerformance] = useState<Performance | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    theme: '',
+    poster_url: '',
+    start_date: '',
+    end_date: '',
+    running_time: 0,
+    base_price: 0,
+    venue_id: 0
+  });
+
+  // 초기화
+  useEffect(() => {
+    const fetchPerfomances = async () => {
+      try {
+        setInitialLoading(true);
+
+        const venueData = await serverAPI.getVenues();
+        const performanceData = await serverAPI.getPerformances();
+
+        setVenues(venueData);
+        setPerformances(performanceData);
+      } catch (error) {
+        console.error('공연 데이터를 가져오는데 실패했습니다: ', error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    fetchPerfomances();
+  }, []);
+
+  const handleCreatePerformance = async () => {
+    try {
+      const newPerformance = await serverAPI.createPerformance({
+        venueId: formData.venue_id,
+        title: formData.title,
+        description: formData.description,
+        theme: formData.theme,
+        posterUrl: formData.poster_url,
+        basePrice: formData.base_price,
+        startDate: formData.start_date,
+        endDate: formData.end_date,
+        runningTime: formData.running_time,
+        status: "UPCOMING"
+      });
+
+      if (newPerformance !== undefined) {
+        setPerformances(prev => [...prev, newPerformance]);
+        setShowCreateDialog(false);
+        resetForm();
+        console.log('공연 생성 성공');
+      } else {
+        throw new Error('공연 생성 실패');
+      }
+    } catch (error) {
+      console.error('공연 생성 실패: ', error);
+    }
+  };
+
+  const handleUpdatePerformance = async () => {
+    if (!editingPerformance) return;
+
+    try {
+      const updateRequestBody: PerformanceRequest = {
+        venueId: formData.venue_id,
+        title: formData.title,
+        description: formData.description || '',
+        theme: formData.theme,
+        posterUrl: formData.poster_url,
+        basePrice: formData.base_price,
+        startDate: formData.start_date,
+        endDate: formData.end_date,
+        runningTime: formData.running_time,
+        status: editingPerformance.status
+      }
+
+      const updatedPerformance = await serverAPI.updatePerformance(editingPerformance.performance_id, updateRequestBody);
+
+      if (updatedPerformance !== undefined) {
+        setPerformances(prev => prev.map(perf =>
+          perf.performance_id === updatedPerformance.performance_id
+            ? {
+              ...perf,
+              ...formData,
+              venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || perf.venue_name
+            }
+            : perf
+        ));
+
+        setEditingPerformance(null);
+        resetForm();
+        console.log('공연 수정 성공');
+      } else {
+        throw new Error('공연 수정 실패');
+      }
+    } catch (error) {
+      console.error('공연 수정 실패: ', error);
+    }
+  };
+
+  const handleDeletePerformance = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this performance?')) {
+      return;
+    }
+
+    try {
+      const success = await serverAPI.deletePerformance(id);
+
+      if (success) {
+        setPerformances(prev => prev.filter(perf => perf.performance_id !== id));
+        console.log('공연 삭제 성공');
+      } else {
+        throw new Error('공연 삭제 실패');
+      }
+    } catch (error) {
+      console.error('공연 삭제 실패: ', error);
+    }
+  };
+
+  const handleEditPerformance = (performance: Performance) => {
+    setEditingPerformance(performance);
+    setFormData({
+      title: performance.title,
+      description: performance.description || '',
+      theme: performance.theme,
+      poster_url: performance.poster_url,
+      start_date: performance.start_date,
+      end_date: performance.end_date,
+      running_time: performance.running_time,
+      base_price: performance.base_price,
+      venue_id: performance.venue_id
+    });
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      theme: '',
+      poster_url: '',
+      start_date: '',
+      end_date: '',
+      running_time: 0,
+      base_price: 0,
+      venue_id: 0
+    });
+  };
+
+  const handleFormCancel = () => {
+    setShowCreateDialog(false);
+    setEditingPerformance(null);
+    resetForm();
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'ONGOING': return 'default';
+      case 'UPCOMING': return 'secondary';
+      case 'ENDED': return 'outline';
+      case 'CANCELLED': return 'destructive';
+      default: return 'outline';
+    }
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('ko-KR').format(price) + '원';
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ko-KR');
+  };
+
+  if (initialLoading) {
     return (
       <div className="space-y-4">
         <Card className="animate-pulse">
@@ -369,7 +370,13 @@ export function PerformanceManagement() {
             <DialogHeader>
               <DialogTitle>Create New Performance</DialogTitle>
             </DialogHeader>
-            <PerformanceForm />
+            <PerformanceForm
+              formData={formData}
+              setFormData={setFormData}
+              venues={venues}
+              onSubmit={handleCreatePerformance}
+              onCancel={handleFormCancel}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -517,7 +524,14 @@ export function PerformanceManagement() {
           <DialogHeader>
             <DialogTitle>Edit Performance</DialogTitle>
           </DialogHeader>
-          <PerformanceForm isEdit />
+          <PerformanceForm
+            formData={formData}
+            setFormData={setFormData}
+            venues={venues}
+            onSubmit={handleUpdatePerformance}
+            onCancel={handleFormCancel}
+            isEdit
+          />
         </DialogContent>
       </Dialog>
     </div>
