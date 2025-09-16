@@ -35,7 +35,7 @@ function PerformanceForm({
         <Input
           id="title"
           value={formData.title}
-          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, title: e.target.value }))}
           placeholder="Performance title"
         />
       </div>
@@ -45,7 +45,7 @@ function PerformanceForm({
         <Textarea
           id="description"
           value={formData.description}
-          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, description: e.target.value }))}
           placeholder="Performance description"
           rows={3}
         />
@@ -54,7 +54,7 @@ function PerformanceForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="theme">Theme</Label>
-          <Select value={formData.theme} onValueChange={(value) => setFormData(prev => ({ ...prev, theme: value }))}>
+          <Select value={formData.theme} onValueChange={(value: any) => setFormData((prev: any) => ({ ...prev, theme: value }))}>
             <SelectTrigger>
               <SelectValue placeholder="Select theme" />
             </SelectTrigger>
@@ -70,7 +70,7 @@ function PerformanceForm({
 
         <div>
           <Label htmlFor="venue">Venue</Label>
-          <Select value={formData.venue_id.toString()} onValueChange={(value) => setFormData(prev => ({ ...prev, venue_id: parseInt(value) }))}>
+          <Select value={formData.venue_id.toString()} onValueChange={(value: string) => setFormData((prev: any) => ({ ...prev, venue_id: parseInt(value) }))}>
             <SelectTrigger>
               <SelectValue placeholder="Select venue" />
             </SelectTrigger>
@@ -90,7 +90,7 @@ function PerformanceForm({
         <Input
           id="poster_url"
           value={formData.poster_url}
-          onChange={(e) => setFormData(prev => ({ ...prev, poster_url: e.target.value }))}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, poster_url: e.target.value }))}
           placeholder="https://example.com/poster.jpg"
         />
       </div>
@@ -102,7 +102,7 @@ function PerformanceForm({
             id="start_date"
             type="date"
             value={formData.start_date}
-            onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, start_date: e.target.value }))}
           />
         </div>
 
@@ -112,7 +112,7 @@ function PerformanceForm({
             id="end_date"
             type="date"
             value={formData.end_date}
-            onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, end_date: e.target.value }))}
           />
         </div>
       </div>
@@ -124,7 +124,7 @@ function PerformanceForm({
             id="running_time"
             type="number"
             value={formData.running_time}
-            onChange={(e) => setFormData(prev => ({ ...prev, running_time: parseInt(e.target.value) || 0 }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, running_time: parseInt(e.target.value) || 0 }))}
             placeholder="120"
           />
         </div>
@@ -135,7 +135,7 @@ function PerformanceForm({
             id="base_price"
             type="number"
             value={formData.base_price}
-            onChange={(e) => setFormData(prev => ({ ...prev, base_price: parseInt(e.target.value) || 0 }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, base_price: parseInt(e.target.value) || 0 }))}
             placeholder="50000"
           />
         </div>
@@ -428,7 +428,7 @@ export function PerformanceManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
                 <p className="text-xl font-medium">
-                  {formatPrice(performances.reduce((sum, p) => sum + p.revenue, 0))}
+                  {formatPrice(performances.reduce((sum, p) => sum + (p.revenue || 0), 0))}
                 </p>
               </div>
             </div>
@@ -487,7 +487,7 @@ export function PerformanceManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>{(performance.total_bookings || 0).toLocaleString()}</TableCell>
-                  <TableCell>{formatPrice(performance.revenue)}</TableCell>
+                  <TableCell>{formatPrice((performance.revenue || 0))}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button
@@ -514,7 +514,7 @@ export function PerformanceManagement() {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingPerformance} onOpenChange={(open) => {
+      <Dialog open={!!editingPerformance} onOpenChange={(open: any) => {
         if (!open) {
           setEditingPerformance(null);
           resetForm();
