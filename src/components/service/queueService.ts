@@ -1,4 +1,5 @@
 import {apiClient} from "./apiService";
+import { API_CONFIG } from '../../config/api.config';
 
 export interface TokenIssueRequest {
     performanceId: number;
@@ -32,6 +33,7 @@ export interface HeartbeatRequest {
 export interface SessionReleaseRequest {
     performanceId: number;
     scheduleId: number;
+    userId: number;
     reason?: string;
 }
 
@@ -217,9 +219,30 @@ class QueueService {
     async releaseSession(performanceId: number, scheduleId: number, reason?: string): Promise<ApiResponseString> {
         console.log('Queue Service - Releasing session for performance:', performanceId, 'schedule:', scheduleId);
 
+        // 현재 사용자 ID 동적으로 가져오기
+        const getCurrentUserId = (): number | null => {
+            try {
+                const currentUser = localStorage.getItem('currentUser');
+                if (currentUser) {
+                    const user = JSON.parse(currentUser);
+                    return user.userId || user.user_id;
+                }
+            } catch (error) {
+                console.error('Failed to get current user ID:', error);
+            }
+            return null;
+        };
+
+        const userId = getCurrentUserId();
+        if (!userId) {
+            console.warn('Cannot send beacon: userId not found');
+            return Promise.reject(new Error('User not logged in')); // 사용자 ID 없으면 거부 수정필요
+        }
+
         const requestData: SessionReleaseRequest = {
             performanceId,
             scheduleId,
+            userId: userId,
             reason: reason || 'user_exit'
         };
 
@@ -254,17 +277,39 @@ class QueueService {
             return false;
         }
 
+        // 현재 사용자 ID 동적으로 가져오기
+        const getCurrentUserId = (): number | null => {
+            try {
+                const currentUser = localStorage.getItem('currentUser');
+                if (currentUser) {
+                    const user = JSON.parse(currentUser);
+                    return user.userId || user.user_id;
+                }
+            } catch (error) {
+                console.error('Failed to get current user ID:', error);
+            }
+            return null;
+        };
+
+        const userId = getCurrentUserId();
+        if (!userId) {
+            console.warn('Cannot send beacon: userId not found');
+            return false;
+        }
+
         const data = JSON.stringify({
             performanceId,
             scheduleId,
+            userId: userId,
             reason: 'page_unload'
         });
 
-        const url = `${apiClient.defaults.baseURL}/api/v1/queue/release-session`;
+        // API_CONFIG를 사용하여 동적 URL 구성
+        const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.QUEUE}/release-session`;
 
         try {
             const success = navigator.sendBeacon(url, data);
-            console.log('Beacon sent:', success);
+            console.log('Beacon sent successfully:', success, 'to:', url);
             return success;
         } catch (error) {
             console.error('Beacon send failed:', error);
