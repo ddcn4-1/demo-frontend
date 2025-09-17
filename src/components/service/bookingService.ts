@@ -9,6 +9,7 @@ import {
   BookingSearchParams,
 } from "../type/index";
 
+
 export const bookingService = {
   async getBookings(
     params?: BookingSearchParams
@@ -30,14 +31,14 @@ export const bookingService = {
         const seats = (b as any).seats as any[] | undefined;
         const seatCodesFromSeats = Array.isArray(seats)
           ? seats
-              .map((s: any) => `${s?.rowLabel ?? ''}${s?.colNum ?? ''}`.trim())
-              .filter((v: string) => v.length > 0)
+            .map((s: any) => `${s?.rowLabel ?? ''}${s?.colNum ?? ''}`.trim())
+            .filter((v: string) => v.length > 0)
           : [];
         const seatCodes = seatCodesFromSeats.length > 0
           ? seatCodesFromSeats
           : (b.seatCodes && b.seatCodes.length > 0
-              ? b.seatCodes
-              : (b.seatCode ? String(b.seatCode).split(',').map(s => s.trim()).filter(Boolean) : []));
+            ? b.seatCodes
+            : (b.seatCode ? String(b.seatCode).split(',').map(s => s.trim()).filter(Boolean) : []));
         const seatCodeAgg = seatCodes.length > 0 ? seatCodes.join(', ') : (b.seatCode || '');
         const seatCount = typeof b.seatCount === 'number' && b.seatCount > 0
           ? b.seatCount
@@ -78,14 +79,14 @@ export const bookingService = {
     const seats = (resp as any).seats as any[] | undefined;
     const seatCodesFromSeats = Array.isArray(seats)
       ? seats
-          .map((s: any) => `${s?.rowLabel ?? ''}${s?.colNum ?? ''}`.trim())
-          .filter((v: string) => v.length > 0)
+        .map((s: any) => `${s?.rowLabel ?? ''}${s?.colNum ?? ''}`.trim())
+        .filter((v: string) => v.length > 0)
       : [];
     const seatCodes = seatCodesFromSeats.length > 0
       ? seatCodesFromSeats
       : ((resp as any).seatCodes && (resp as any).seatCodes.length > 0
-          ? (resp as any).seatCodes
-          : ((resp as any).seatCode ? String((resp as any).seatCode).split(',').map((s: string) => s.trim()).filter(Boolean) : []));
+        ? (resp as any).seatCodes
+        : ((resp as any).seatCode ? String((resp as any).seatCode).split(',').map((s: string) => s.trim()).filter(Boolean) : []));
     const seatCodeAgg = seatCodes.length > 0 ? seatCodes.join(', ') : ((resp as any).seatCode || '');
 
     return {

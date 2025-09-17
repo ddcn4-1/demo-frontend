@@ -9,34 +9,154 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Plus, Edit, Trash2, Calendar, MapPin, Users } from 'lucide-react';
+import { Performance, PerformanceRequest, Venue } from '../type/index';
+import { serverAPI } from '../service/apiService';
 
-interface Performance {
-  performance_id: number;
-  title: string;
-  description: string;
-  theme: string;
-  poster_url: string;
-  start_date: string;
-  end_date: string;
-  running_time: number;
-  base_price: number;
-  status: 'UPCOMING' | 'ONGOING' | 'ENDED' | 'CANCELLED';
-  venue_name: string;
-  venue_id: number;
-  total_bookings: number;
-  revenue: number;
-}
+// PerformanceForm을 별도 컴포넌트로 분리
+function PerformanceForm({
+  formData,
+  setFormData,
+  venues,
+  onSubmit,
+  onCancel,
+  isEdit = false
+}: {
+  formData: any;
+  setFormData: (data: any) => void;
+  venues: Venue[];
+  onSubmit: () => void;
+  onCancel: () => void;
+  isEdit?: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="title">Title</Label>
+        <Input
+          id="title"
+          value={formData.title}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, title: e.target.value }))}
+          placeholder="Performance title"
+        />
+      </div>
 
-interface Venue {
-  venue_id: number;
-  venue_name: string;
-  total_capacity: number;
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, description: e.target.value }))}
+          placeholder="Performance description"
+          rows={3}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="theme">Theme</Label>
+          <Select value={formData.theme} onValueChange={(value: any) => setFormData((prev: any) => ({ ...prev, theme: value }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select theme" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Musical">Musical</SelectItem>
+              <SelectItem value="Ballet">Ballet</SelectItem>
+              <SelectItem value="Concert">Concert</SelectItem>
+              <SelectItem value="Opera">Opera</SelectItem>
+              <SelectItem value="Theater">Theater</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="venue">Venue</Label>
+          <Select value={formData.venue_id.toString()} onValueChange={(value: string) => setFormData((prev: any) => ({ ...prev, venue_id: parseInt(value) }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select venue" />
+            </SelectTrigger>
+            <SelectContent>
+              {venues.map(venue => (
+                <SelectItem key={venue.venue_id} value={venue.venue_id.toString()}>
+                  {venue.venue_name} ({venue.total_capacity} seats)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="poster_url">Poster URL</Label>
+        <Input
+          id="poster_url"
+          value={formData.poster_url}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, poster_url: e.target.value }))}
+          placeholder="https://example.com/poster.jpg"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="start_date">Start Date</Label>
+          <Input
+            id="start_date"
+            type="date"
+            value={formData.start_date}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, start_date: e.target.value }))}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="end_date">End Date</Label>
+          <Input
+            id="end_date"
+            type="date"
+            value={formData.end_date}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, end_date: e.target.value }))}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="running_time">Running Time (minutes)</Label>
+          <Input
+            id="running_time"
+            type="number"
+            value={formData.running_time}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, running_time: parseInt(e.target.value) || 0 }))}
+            placeholder="120"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="base_price">Base Price (KRW)</Label>
+          <Input
+            id="base_price"
+            type="number"
+            value={formData.base_price}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, base_price: parseInt(e.target.value) || 0 }))}
+            placeholder="50000"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4">
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button onClick={onSubmit}>
+          {isEdit ? 'Update' : 'Create'} Performance
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export function PerformanceManagement() {
   const [performances, setPerformances] = useState<Performance[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [editingPerformance, setEditingPerformance] = useState<Performance | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [formData, setFormData] = useState({
@@ -51,104 +171,112 @@ export function PerformanceManagement() {
     venue_id: 0
   });
 
+  // 초기화
   useEffect(() => {
-    // Mock data initialization
-    setTimeout(() => {
-      setVenues([
-        { venue_id: 1, venue_name: 'Grand Opera House', total_capacity: 200 },
-        { venue_id: 2, venue_name: 'National Theater', total_capacity: 150 },
-        { venue_id: 3, venue_name: 'Arena Stadium', total_capacity: 3000 },
-        { venue_id: 4, venue_name: 'Concert Hall', total_capacity: 500 }
-      ]);
+    const fetchPerfomances = async () => {
+      try {
+        setInitialLoading(true);
 
-      setPerformances([
-        {
-          performance_id: 1,
-          title: 'The Phantom of the Opera',
-          description: 'A haunting tale of beauty and the beast in this timeless musical masterpiece.',
-          theme: 'MUSICAL',
-          poster_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop',
-          start_date: '2024-12-01',
-          end_date: '2024-12-31',
-          running_time: 150,
-          base_price: 75000,
-          status: 'ONGOING',
-          venue_name: 'Grand Opera House',
-          venue_id: 1,
-          total_bookings: 145,
-          revenue: 10875000
-        },
-        {
-          performance_id: 2,
-          title: 'Swan Lake Ballet',
-          description: 'Experience the classic ballet with stunning choreography and beautiful music.',
-          theme: 'BALLET',
-          poster_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=600&fit=crop',
-          start_date: '2024-12-10',
-          end_date: '2024-12-25',
-          running_time: 120,
-          base_price: 65000,
-          status: 'ONGOING',
-          venue_name: 'National Theater',
-          venue_id: 2,
-          total_bookings: 78,
-          revenue: 5070000
-        },
-        {
-          performance_id: 3,
-          title: 'Rock Concert Live',
-          description: 'An electrifying rock concert featuring top bands and explosive performances.',
-          theme: 'CONCERT',
-          poster_url: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=600&fit=crop',
-          start_date: '2024-12-20',
-          end_date: '2024-12-22',
-          running_time: 180,
-          base_price: 85000,
-          status: 'UPCOMING',
-          venue_name: 'Arena Stadium',
-          venue_id: 3,
-          total_bookings: 1250,
-          revenue: 106250000
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
-  }, []);
+        const venueData = await serverAPI.getVenues();
+        const performanceData = await serverAPI.getPerformances();
 
-  const handleCreatePerformance = () => {
-    const newPerformance: Performance = {
-      performance_id: Date.now(),
-      ...formData,
-      status: 'UPCOMING' as const,
-      venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || '',
-      total_bookings: 0,
-      revenue: 0
+        setVenues(venueData);
+        setPerformances(performanceData);
+      } catch (error) {
+        console.error('공연 데이터를 가져오는데 실패했습니다: ', error);
+      } finally {
+        setInitialLoading(false);
+      }
     };
 
-    setPerformances(prev => [...prev, newPerformance]);
-    setShowCreateDialog(false);
-    resetForm();
+    fetchPerfomances();
+  }, []);
+
+  const handleCreatePerformance = async () => {
+    try {
+      const newPerformance = await serverAPI.createPerformance({
+        venueId: formData.venue_id,
+        title: formData.title,
+        description: formData.description,
+        theme: formData.theme,
+        posterUrl: formData.poster_url,
+        basePrice: formData.base_price,
+        startDate: formData.start_date,
+        endDate: formData.end_date,
+        runningTime: formData.running_time,
+        status: "UPCOMING"
+      });
+
+      if (newPerformance !== undefined) {
+        setPerformances(prev => [...prev, newPerformance]);
+        setShowCreateDialog(false);
+        resetForm();
+        console.log('공연 생성 성공');
+      } else {
+        throw new Error('공연 생성 실패');
+      }
+    } catch (error) {
+      console.error('공연 생성 실패: ', error);
+    }
   };
 
-  const handleUpdatePerformance = () => {
+  const handleUpdatePerformance = async () => {
     if (!editingPerformance) return;
 
-    setPerformances(prev => prev.map(perf => 
-      perf.performance_id === editingPerformance.performance_id
-        ? { 
-            ...perf, 
-            ...formData,
-            venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || perf.venue_name
-          }
-        : perf
-    ));
-    setEditingPerformance(null);
-    resetForm();
+    try {
+      const updateRequestBody: PerformanceRequest = {
+        venueId: formData.venue_id,
+        title: formData.title,
+        description: formData.description || '',
+        theme: formData.theme,
+        posterUrl: formData.poster_url,
+        basePrice: formData.base_price,
+        startDate: formData.start_date,
+        endDate: formData.end_date,
+        runningTime: formData.running_time,
+        status: editingPerformance.status
+      }
+
+      const updatedPerformance = await serverAPI.updatePerformance(editingPerformance.performance_id, updateRequestBody);
+
+      if (updatedPerformance !== undefined) {
+        setPerformances(prev => prev.map(perf =>
+          perf.performance_id === updatedPerformance.performance_id
+            ? {
+              ...perf,
+              ...formData,
+              venue_name: venues.find(v => v.venue_id === formData.venue_id)?.venue_name || perf.venue_name
+            }
+            : perf
+        ));
+
+        setEditingPerformance(null);
+        resetForm();
+        console.log('공연 수정 성공');
+      } else {
+        throw new Error('공연 수정 실패');
+      }
+    } catch (error) {
+      console.error('공연 수정 실패: ', error);
+    }
   };
 
-  const handleDeletePerformance = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this performance?')) {
-      setPerformances(prev => prev.filter(perf => perf.performance_id !== id));
+  const handleDeletePerformance = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this performance?')) {
+      return;
+    }
+
+    try {
+      const success = await serverAPI.deletePerformance(id);
+
+      if (success) {
+        setPerformances(prev => prev.filter(perf => perf.performance_id !== id));
+        console.log('공연 삭제 성공');
+      } else {
+        throw new Error('공연 삭제 실패');
+      }
+    } catch (error) {
+      console.error('공연 삭제 실패: ', error);
     }
   };
 
@@ -156,7 +284,7 @@ export function PerformanceManagement() {
     setEditingPerformance(performance);
     setFormData({
       title: performance.title,
-      description: performance.description,
+      description: performance.description || '',
       theme: performance.theme,
       poster_url: performance.poster_url,
       start_date: performance.start_date,
@@ -181,6 +309,12 @@ export function PerformanceManagement() {
     });
   };
 
+  const handleFormCancel = () => {
+    setShowCreateDialog(false);
+    setEditingPerformance(null);
+    resetForm();
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ONGOING': return 'default';
@@ -199,135 +333,7 @@ export function PerformanceManagement() {
     return new Date(dateString).toLocaleDateString('ko-KR');
   };
 
-  const PerformanceForm = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="title">Title</Label>
-        <Input
-          id="title"
-          value={formData.title}
-          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-          placeholder="Performance title"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          value={formData.description}
-          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-          placeholder="Performance description"
-          rows={3}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="theme">Theme</Label>
-          <Select value={formData.theme} onValueChange={(value) => setFormData(prev => ({ ...prev, theme: value }))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select theme" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="MUSICAL">Musical</SelectItem>
-              <SelectItem value="BALLET">Ballet</SelectItem>
-              <SelectItem value="CONCERT">Concert</SelectItem>
-              <SelectItem value="OPERA">Opera</SelectItem>
-              <SelectItem value="THEATER">Theater</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label htmlFor="venue">Venue</Label>
-          <Select value={formData.venue_id.toString()} onValueChange={(value) => setFormData(prev => ({ ...prev, venue_id: parseInt(value) }))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select venue" />
-            </SelectTrigger>
-            <SelectContent>
-              {venues.map(venue => (
-                <SelectItem key={venue.venue_id} value={venue.venue_id.toString()}>
-                  {venue.venue_name} ({venue.total_capacity} seats)
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="poster_url">Poster URL</Label>
-        <Input
-          id="poster_url"
-          value={formData.poster_url}
-          onChange={(e) => setFormData(prev => ({ ...prev, poster_url: e.target.value }))}
-          placeholder="https://example.com/poster.jpg"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="start_date">Start Date</Label>
-          <Input
-            id="start_date"
-            type="date"
-            value={formData.start_date}
-            onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="end_date">End Date</Label>
-          <Input
-            id="end_date"
-            type="date"
-            value={formData.end_date}
-            onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="running_time">Running Time (minutes)</Label>
-          <Input
-            id="running_time"
-            type="number"
-            value={formData.running_time}
-            onChange={(e) => setFormData(prev => ({ ...prev, running_time: parseInt(e.target.value) || 0 }))}
-            placeholder="120"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="base_price">Base Price (KRW)</Label>
-          <Input
-            id="base_price"
-            type="number"
-            value={formData.base_price}
-            onChange={(e) => setFormData(prev => ({ ...prev, base_price: parseInt(e.target.value) || 0 }))}
-            placeholder="50000"
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={() => {
-          setShowCreateDialog(false);
-          setEditingPerformance(null);
-          resetForm();
-        }}>
-          Cancel
-        </Button>
-        <Button onClick={isEdit ? handleUpdatePerformance : handleCreatePerformance}>
-          {isEdit ? 'Update' : 'Create'} Performance
-        </Button>
-      </div>
-    </div>
-  );
-
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="space-y-4">
         <Card className="animate-pulse">
@@ -364,7 +370,13 @@ export function PerformanceManagement() {
             <DialogHeader>
               <DialogTitle>Create New Performance</DialogTitle>
             </DialogHeader>
-            <PerformanceForm />
+            <PerformanceForm
+              formData={formData}
+              setFormData={setFormData}
+              venues={venues}
+              onSubmit={handleCreatePerformance}
+              onCancel={handleFormCancel}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -390,7 +402,7 @@ export function PerformanceManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Total Bookings</p>
                 <p className="text-xl font-medium">
-                  {performances.reduce((sum, p) => sum + p.total_bookings, 0).toLocaleString()}
+                  {performances.reduce((sum, p) => sum + (p.total_bookings || 0), 0).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -416,7 +428,7 @@ export function PerformanceManagement() {
               <div>
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
                 <p className="text-xl font-medium">
-                  {formatPrice(performances.reduce((sum, p) => sum + p.revenue, 0))}
+                  {formatPrice(performances.reduce((sum, p) => sum + (p.revenue || 0), 0))}
                 </p>
               </div>
             </div>
@@ -448,8 +460,8 @@ export function PerformanceManagement() {
                 <TableRow key={performance.performance_id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <img 
-                        src={performance.poster_url} 
+                      <img
+                        src={performance.poster_url}
                         alt={performance.title}
                         className="w-10 h-10 object-cover rounded"
                       />
@@ -474,19 +486,19 @@ export function PerformanceManagement() {
                       {performance.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{performance.total_bookings.toLocaleString()}</TableCell>
-                  <TableCell>{formatPrice(performance.revenue)}</TableCell>
+                  <TableCell>{(performance.total_bookings || 0).toLocaleString()}</TableCell>
+                  <TableCell>{formatPrice((performance.revenue || 0))}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleEditPerformance(performance)}
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleDeletePerformance(performance.performance_id)}
                       >
@@ -502,7 +514,7 @@ export function PerformanceManagement() {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingPerformance} onOpenChange={(open) => {
+      <Dialog open={!!editingPerformance} onOpenChange={(open: any) => {
         if (!open) {
           setEditingPerformance(null);
           resetForm();
@@ -512,7 +524,14 @@ export function PerformanceManagement() {
           <DialogHeader>
             <DialogTitle>Edit Performance</DialogTitle>
           </DialogHeader>
-          <PerformanceForm isEdit />
+          <PerformanceForm
+            formData={formData}
+            setFormData={setFormData}
+            venues={venues}
+            onSubmit={handleUpdatePerformance}
+            onCancel={handleFormCancel}
+            isEdit
+          />
         </DialogContent>
       </Dialog>
     </div>

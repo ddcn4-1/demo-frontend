@@ -4,9 +4,14 @@ import {
     PerformanceResponse,
     ScheduleResponse,
     Booking,
+    BookingDto,
     Seat,
     Venue,
     SystemMetrics,
+    UserResponse,
+    VenueResponse,
+    PerformanceRequest,
+    AdminBooking,
 } from '../type/index';
 import { API_CONFIG, shouldUseMock } from '../../config/api.config';
 import { serverAPI as mockAPI } from '../../data/mockServer';
@@ -110,7 +115,7 @@ class ApiClient {
             body: data ? JSON.stringify(data) : undefined,
         });
     }
-    
+
     async patch<T>(endpoint: string, data?: any): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'PATCH',
@@ -143,6 +148,7 @@ const transformPerformanceData = (
         end_date: response.endDate,
         running_time: response.runningTime,
         venue_address: response.venueAddress,
+        venue_id: response.venueId,
 
         // 스케줄 변환
         schedules: response.schedules.map((schedule) => ({
@@ -156,6 +162,42 @@ const transformPerformanceData = (
 
     return transformed;
 };
+
+// user data transform util function
+const transformUserData = (
+    response: UserResponse
+): User => {
+    const transformed: User = {
+        user_id: response.userId,
+        username: response.username,
+        email: response.email,
+        name: response.name,
+        phone: response.phone,
+        role: response.role,
+        status: response.status
+    };
+
+    return transformed;
+};
+
+// user data transform util function
+const transformVenueData = (
+    response: VenueResponse
+): Venue => {
+    const transformed: Venue = {
+        venue_id: response.venueId,
+        venue_name: response.venueName,
+        address: response.address,
+        description: response.description,
+        contact: response.contact,
+        total_capacity: response.totalCapacity,
+        created_at: response.created_at
+    };
+
+    return transformed;
+};
+
+
 
 export const apiClient = new ApiClient(API_CONFIG.BASE_URL, API_CONFIG.TIMEOUT);
 
@@ -183,14 +225,23 @@ export const serverAPI = {
         }
 
         try {
-            return await apiClient.get<Performance[]>(
+            const backendResponse = await apiClient.get<PerformanceResponse[]>(
                 API_CONFIG.ENDPOINTS.PERFORMANCES
             );
+
+            if (!backendResponse || !Array.isArray(backendResponse)) {
+                throw new Error('Invalid performances data received from backend');
+            }
+
+            const transformedData = backendResponse.map(transformPerformanceData);
+
+            return transformedData;
         } catch (error) {
             console.error('Failed to fetch performances:', error);
             return [];
         }
     },
+
     async searchPerformances(searchParams: {
         name?: string;
         venue?: string;
@@ -252,10 +303,10 @@ export const serverAPI = {
     async getPerformanceSchedules(performanceId: number): Promise<{ schedules: ScheduleResponse[] }> {
         try {
             console.log('API - Requesting schedules for performance ID:', performanceId);
-            
+
             const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}/schedules`;
             const response = await apiClient.get<{ schedules: ScheduleResponse[] }>(endpoint);
-            
+
             console.log('API - Schedules response:', response);
             return response;
         } catch (error) {
@@ -264,6 +315,42 @@ export const serverAPI = {
                 error
             );
             throw error;
+        }
+    },
+
+    async createPerformance(performanceData: PerformanceRequest): Promise<Performance | undefined> {
+        try {
+            const response = await apiClient.post<PerformanceResponse>(API_CONFIG.ENDPOINTS.PERFORMANCES, performanceData);
+
+            return transformPerformanceData(response);
+        } catch (error) {
+            console.error('Failed to create performance: ', error);
+            return undefined;
+        }
+    },
+
+    async updatePerformance(performanceId: number, performanceData: PerformanceRequest): Promise<Performance | undefined> {
+        try {
+            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`
+            const response = await apiClient.put<PerformanceResponse>(endpoint, performanceData);
+
+            console.log(response);
+            return transformPerformanceData(response);
+        } catch (error) {
+            console.error('Failed to update performance: ', error);
+            return undefined;
+        }
+    },
+
+    async deletePerformance(performanceId: number): Promise<boolean> {
+        try {
+            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`
+            await apiClient.delete(endpoint);
+
+            return true;
+        } catch (error) {
+            console.error('Failed to delete performance: ', error);
+            return false;
         }
     },
 
@@ -279,6 +366,17 @@ export const serverAPI = {
             );
         } catch (error) {
             console.error('Failed to fetch bookings:', error);
+            return [];
+        }
+    },
+
+    async getAdminAllBookings(): Promise<Booking[]> {
+        try {
+            return await apiClient.get<Booking[]>(
+                API_CONFIG.ENDPOINTS.ADMIN_BOOKINGS
+            );
+        } catch (error) {
+            console.error('Failed to fetch admin bookings:', error);
             return [];
         }
     },
@@ -356,7 +454,15 @@ export const serverAPI = {
         }
 
         try {
-            return await apiClient.get<User[]>(API_CONFIG.ENDPOINTS.USERS);
+            const backendResponse = await apiClient.get<UserResponse[]>(API_CONFIG.ENDPOINTS.USERS);
+
+            if (!backendResponse || !Array.isArray(backendResponse)) {
+                throw new Error('Invalid users data received from backend');
+            }
+
+            const transformedData = backendResponse.map(transformUserData);
+
+            return transformedData;
         } catch (error) {
             console.error('Failed to fetch users:', error);
             return [];
@@ -425,7 +531,15 @@ export const serverAPI = {
         }
 
         try {
-            return await apiClient.get<Venue[]>(API_CONFIG.ENDPOINTS.VENUES);
+            const backendResponse = await apiClient.get<VenueResponse[]>(API_CONFIG.ENDPOINTS.VENUES);
+
+            if (!backendResponse || !Array.isArray(backendResponse)) {
+                throw new Error('Invalid venues data received from backend');
+            }
+
+            const transformedData = backendResponse.map(transformVenueData);
+
+            return transformedData;
         } catch (error) {
             console.error('Failed to fetch venues:', error);
             return [];
