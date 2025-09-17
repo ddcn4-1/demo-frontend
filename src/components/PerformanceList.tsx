@@ -256,22 +256,22 @@ export function PerformanceList({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Status</SelectItem>
-                                <SelectItem value="scheduled">
-                                    Scheduled
-                                </SelectItem>
-                                <SelectItem value="ongoing">Ongoing</SelectItem>
-                                <SelectItem value="completed">
-                                    Completed
-                                </SelectItem>
-                                <SelectItem value="cancelled">
+                                <SelectItem value="UPCOMING">
+                                    Upcoming
+                                </SelectItem>{' '}
+                                {/* scheduled → UPCOMING */}
+                                <SelectItem value="ONGOING">
+                                    Ongoing
+                                </SelectItem>{' '}
+                                {/* ongoing → ONGOING */}
+                                <SelectItem value="ENDED">
+                                    Ended
+                                </SelectItem>{' '}
+                                {/* completed → ENDED */}
+                                <SelectItem value="CANCELLED">
                                     Cancelled
-                                </SelectItem>
-                                <SelectItem value="available">
-                                    Available Seats
-                                </SelectItem>
-                                <SelectItem value="soldout">
-                                    Sold Out
-                                </SelectItem>
+                                </SelectItem>{' '}
+                                {/* cancelled → CANCELLED */}
                             </SelectContent>
                         </Select>
                     </div>

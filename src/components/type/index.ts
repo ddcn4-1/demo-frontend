@@ -4,8 +4,8 @@ export interface User {
     username: string;
     name: string;
     phone: string;
-    role: 'USER' | 'ADMIN' | 'DevOps' | 'Dev';
-    status: 'active' | 'inactive' | 'suspended';
+    role: 'USER' | 'ADMIN' | 'DEVOPS' | 'DEV';
+    status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
     created_at: string;
     last_login?: string;
 }
@@ -30,13 +30,7 @@ export interface Performance {
     poster_url: string;
     price: number;
     base_price?: number; // alias for price
-    status:
-        | 'UPCOMING'
-        | 'ONGOING'
-        | 'ENDED'
-        | 'CANCELLED'
-        | 'SCHEDULED'
-        | 'COMPLETED';
+    status: 'UPCOMING' | 'ONGOING' | 'ENDED' | 'CANCELLED';
     start_date: string;
     end_date: string;
     running_time: number;
@@ -59,13 +53,7 @@ export interface PerformanceResponse {
     theme: string;
     posterUrl: string;
     price: number;
-    status:
-        | 'UPCOMING'
-        | 'ONGOING'
-        | 'ENDED'
-        | 'CANCELLED'
-        | 'SCHEDULED'
-        | 'COMPLETED';
+    status: 'UPCOMING' | 'ONGOING' | 'ENDED' | 'CANCELLED';
     startDate: string;
     endDate: string;
     runningTime: number;
@@ -103,7 +91,7 @@ export interface PerformanceSchedule {
     total_seats: number;
     available_seats: number;
     base_price?: number;
-    status: 'SCHEDULED' | 'CANCELLED' | 'COMPLETED' | 'ONGOING';
+    status: 'OPEN' | 'CLOSED' | 'SOLDOUT';
     created_at: string;
 }
 
@@ -127,11 +115,11 @@ export interface Booking {
     show_datetime: string;
     seat_count: number;
     total_amount: number;
-    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+    status: 'PENDING' | 'BOOKED' | 'CONFIRMED' | 'CANCELLED';
     booked_at: string;
     cancelled_at?: string;
     cancellation_reason?: string;
-    refund_status?: 'PENDING' | 'PROCESSING' | 'COMPLETED';
+    refund_status?: 'REQUESTED' | 'PROCESSING' | 'COMPLETED' | 'REJECTED';
     refund_amount?: number;
     seats: Array<{
         seat_id: number;
@@ -161,82 +149,82 @@ export interface ApiResponse<T> {
     success: boolean;
     error?: string;
     timestamp?: string;
-  }
-  
-  export interface PaginatedResponse<T> {
+}
+
+export interface PaginatedResponse<T> {
     data: T[];
     total: number;
     page: number;
     limit?: number;
     totalPages?: number;
-  }
-  
-  // Authentication DTOs
-  export interface LoginRequest {
+}
+
+// Authentication DTOs
+export interface LoginRequest {
     usernameOrEmail: string;
     password: string;
-  }
-  
-  export interface AuthResponse {
+}
+
+export interface AuthResponse {
     accessToken: string;
     userType: string;
-  }
-  
-  export interface EnhancedAuthResponse {
+}
+
+export interface EnhancedAuthResponse {
     accessToken: string;
     userType: string;
     user: UserInfo;
     message: string;
     expiresIn: number;
-  }
-  
-  export interface UserInfo {
+}
+
+export interface UserInfo {
     userId: number;
     username: string;
     email: string;
     name: string;
     role: string;
     lastLogin?: string;
-  }
-  
-  export interface LogoutResponse {
+}
+
+export interface LogoutResponse {
     username: string;
     tokenTimeLeft: string;
-  }
-  
-  export interface ApiResponseLogoutResponse {
+}
+
+export interface ApiResponseLogoutResponse {
     message: string;
     data: LogoutResponse;
     success: boolean;
     error?: string;
     timestamp: string;
-  }
-  
-  // User DTOs
-  export interface UserDto {
+}
+
+// User DTOs
+export interface UserDto {
     userId: number;
     username: string;
     email: string;
     name: string;
     passwordHash?: string;
     phone: string;
-    role: "USER" | "ADMIN";
-  }
-  
-  export interface ScheduleResponse {
+    role: 'USER' | 'ADMIN';
+}
+
+export interface ScheduleResponse {
     scheduleId: number;
     showDatetime: string;
     availableSeats: number;
     totalSeats: number;
     status: string;
-  }
-  
-  export interface PerformanceSchedulesResponse {
+}
+
+export interface PerformanceSchedulesResponse {
     schedules: ScheduleResponse[];
-  }
-  
-  // Booking DTOs
-  export interface BookingDto {
+}
+
+// Booking DTOs
+export interface BookingDto {
     bookingId: number;
     bookingNumber: string;
     userId: number;
@@ -249,37 +237,37 @@ export interface ApiResponse<T> {
     seats?: BookingSeatDto[]; // 목록 응답에도 좌석 상세 포함 가능
     seatCount: number;
     totalAmount: number;
-    status: "PENDING" | "CONFIRMED" | "CANCELLED";
+    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
     expiresAt: string;
     bookedAt: string;
     cancelledAt?: string;
     cancellationReason?: string;
     createdAt: string;
     updatedAt: string;
-  }
-  
-  export interface BookingSeatSelectorDto {
+}
+
+export interface BookingSeatSelectorDto {
     grade: string;
     zone: string;
     rowLabel: string;
     colNum: string;
-  }
+}
 
-  export interface CreateBookingRequestDto {
+export interface CreateBookingRequestDto {
     scheduleId: number;
     seats: BookingSeatSelectorDto[];
     queueToken?: string;
-  }
-  
-  export interface BookingSeatDto {
+}
+
+export interface BookingSeatDto {
     bookingSeatId: number;
     bookingId: number;
     seatId: number;
     seatPrice: number;
     createdAt: string;
-  }
-  
-  export interface CreateBookingResponseDto {
+}
+
+export interface CreateBookingResponseDto {
     bookingId: number;
     bookingNumber: string;
     userId: number;
@@ -290,42 +278,42 @@ export interface ApiResponse<T> {
     expiresAt: string;
     bookedAt: string;
     seats: BookingSeatDto[];
-  }
-  
-  export interface GetBookings200ResponseDto {
+}
+
+export interface GetBookings200ResponseDto {
     bookings: BookingDto[];
     total: number;
     page: number;
-  }
-  
-  export interface GetBookingDetail200ResponseDto extends BookingDto {
+}
+
+export interface GetBookingDetail200ResponseDto extends BookingDto {
     seats: BookingSeatDto[];
-  }
-  
-  export interface CancelBookingRequestDto {
+}
+
+export interface CancelBookingRequestDto {
     reason?: string;
-  }
-  
-  export interface CancelBooking200ResponseDto {
+}
+
+export interface CancelBooking200ResponseDto {
     message: string;
     bookingId: number;
     status: string;
     cancelledAt: string;
     refundAmount: number;
-  }
-  
-  // Venue DTOs
-  export interface VenueDto {
+}
+
+// Venue DTOs
+export interface VenueDto {
     venueId: number;
     venueName: string;
     address: string;
     description?: string;
     totalCapacity: number;
     contact?: string;
-  }
-  
-  // Seat DTOs
-  export interface SeatDto {
+}
+
+// Seat DTOs
+export interface SeatDto {
     seatId: number;
     scheduleId: number;
     venueSeatId: number;
@@ -335,105 +323,105 @@ export interface ApiResponse<T> {
     seatGrade?: string;
     price: number;
     status: string;
-  }
-  
-  export interface SeatAvailabilityResponse {
+}
+
+export interface SeatAvailabilityResponse {
     scheduleId: number;
     totalSeats: number;
     availableSeats: number;
     seats: SeatDto[];
-  }
-  
-  export interface ApiResponseSeatAvailabilityResponse {
+}
+
+export interface ApiResponseSeatAvailabilityResponse {
     message?: string;
     data: SeatAvailabilityResponse;
     success: boolean;
     error?: string;
     timestamp?: string;
-  }
-  
-  export interface SeatLockRequest {
+}
+
+export interface SeatLockRequest {
     seatIds: number[];
     userId: number;
     sessionId?: string;
-  }
-  
-  export interface SeatLockResponse {
+}
+
+export interface SeatLockResponse {
     success: boolean;
     message: string;
     expiresAt: string;
-  }
-  
-  export interface ApiResponseSeatLockResponse {
+}
+
+export interface ApiResponseSeatLockResponse {
     message?: string;
     data: SeatLockResponse;
     success: boolean;
     error?: string;
     timestamp?: string;
-  }
-  
-  export interface SeatReleaseRequest {
+}
+
+export interface SeatReleaseRequest {
     seatIds: number[];
     userId: number;
     sessionId?: string;
-  }
-  
-  export interface SeatConfirmRequest {
+}
+
+export interface SeatConfirmRequest {
     seatIds: number[];
     userId: number;
     bookingId: number;
-  }
-  
-  export interface ApiResponseBoolean {
+}
+
+export interface ApiResponseBoolean {
     message?: string;
     data: boolean;
     success: boolean;
     error?: string;
     timestamp?: string;
-  }
-  
-  export interface ApiResponseString {
+}
+
+export interface ApiResponseString {
     message?: string;
     data: string;
     success: boolean;
     error?: string;
     timestamp?: string;
-  }
-  
-  // Admin DTOs
-  export interface AuthLogDto {
+}
+
+// Admin DTOs
+export interface AuthLogDto {
     username: string;
     action: string;
     timestamp: string;
     details: string;
-  }
-  
-  export interface DashboardDto {
+}
+
+export interface DashboardDto {
     recentAuthLogs: AuthLogDto[];
-  }
-  
-  // Search Parameters
-  export interface PerformanceSearchParams {
+}
+
+// Search Parameters
+export interface PerformanceSearchParams {
     name?: string;
     venue?: string;
     status?: string;
-  }
-  
-  export interface BookingSearchParams {
+}
+
+export interface BookingSearchParams {
     status?: string;
     page?: number;
     limit?: number;
-  }
-  
-  export interface UserSearchParams {
+}
+
+export interface UserSearchParams {
     page?: number;
     limit?: number;
     search?: string;
-    role?: "USER" | "ADMIN";
-  }
-  
-  // Seat Map Types
-  export interface SeatMapSection {
+    role?: 'USER' | 'ADMIN';
+}
+
+// Seat Map Types
+export interface SeatMapSection {
     cols: number;
     rows: number;
     zone?: string;
@@ -441,24 +429,23 @@ export interface ApiResponse<T> {
     grade?: string;
     seatStart?: number;
     rowLabelFrom: string; // e.g., "A", "K", "AE"
-  }
-  
-  export interface SeatMapMeta {
+}
+
+export interface SeatMapMeta {
     totalSeats?: number;
     seatCodeFormat?: string; // e.g., "{row}-{number}"
     alphabet?: string; // e.g., "ABCDEFGHJKLMNPQRSTUVWXYZ" (optional skip letters)
-  }
-  
-  export interface SeatMapJson {
+}
+
+export interface SeatMapJson {
     meta?: SeatMapMeta;
     version?: number;
     pricing?: Record<string, number>;
     sections: SeatMapSection[];
-  }
-  
-  export interface VenueApiResponse {
+}
+
+export interface VenueApiResponse {
     venueId: number;
     seatMapUrl: string;
     seatMapJson: SeatMapJson;
-  }
-  
+}
