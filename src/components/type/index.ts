@@ -57,9 +57,7 @@ export interface Performance {
   | 'UPCOMING'
   | 'ONGOING'
   | 'ENDED'
-  | 'CANCELLED'
-  | 'SCHEDULED'
-  | 'COMPLETED';
+  | 'CANCELLED';
   start_date: string;
   end_date: string;
   running_time: number;
@@ -89,9 +87,7 @@ export interface PerformanceRequest {
   | 'UPCOMING'
   | 'ONGOING'
   | 'ENDED'
-  | 'CANCELLED'
-  | 'SCHEDULED'
-  | 'COMPLETED';
+  | 'CANCELLED';
   // schedules: Array<{
   //   schedule_id: number;
   //   show_datetime: string;
@@ -112,9 +108,7 @@ export interface PerformanceResponse {
   | 'UPCOMING'
   | 'ONGOING'
   | 'ENDED'
-  | 'CANCELLED'
-  | 'SCHEDULED'
-  | 'COMPLETED';
+  | 'CANCELLED';
   startDate: string;
   endDate: string;
   runningTime: number;
@@ -153,7 +147,7 @@ export interface PerformanceSchedule {
   total_seats: number;
   available_seats: number;
   base_price?: number;
-  status: 'SCHEDULED' | 'CANCELLED' | 'COMPLETED' | 'ONGOING';
+  status: 'OPEN' | 'CLOSED' | 'SOLDOUT';
   created_at: string;
 }
 
@@ -177,11 +171,11 @@ export interface Booking {
   show_datetime?: string;
   seat_count: number;
   total_amount: number;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  status: 'PENDING' | 'BOOKED' | 'CONFIRMED' | 'CANCELLED';
   booked_at: string;
   cancelled_at?: string;
   cancellation_reason?: string;
-  refund_status?: 'PENDING' | 'PROCESSING' | 'COMPLETED';
+  refund_status?: 'REQUESTED' | 'PROCESSING' | 'COMPLETED' | 'REJECTED';
   refund_amount?: number;
   seats?: BookingSeatDto[];
 }
@@ -270,7 +264,7 @@ export interface UserDto {
   name: string;
   passwordHash?: string;
   phone: string;
-  role: "USER" | "ADMIN";
+  role: 'USER' | 'ADMIN';
 }
 
 export interface ScheduleResponse {
@@ -299,7 +293,7 @@ export interface BookingDto {
   seats?: BookingSeatDto[]; // 목록 응답에도 좌석 상세 포함 가능
   seatCount: number;
   totalAmount: number;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
   expiresAt: string;
   bookedAt: string;
   cancelledAt?: string;
@@ -483,7 +477,7 @@ export interface UserSearchParams {
   page?: number;
   limit?: number;
   search?: string;
-  role?: "USER" | "ADMIN";
+  role?: 'USER' | 'ADMIN';
 }
 
 // Seat Map Types
