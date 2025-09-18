@@ -2,7 +2,7 @@ name: Deploy Frontend
 
 on:
   push:
-    branches: [main, 'feat/#32'] # 테스트용 브랜치 추가 (테스트 후 제거할 것)
+    branches: [main]
 
 env:
   BUCKET_NAME: "ddcn41v1-frontend"
