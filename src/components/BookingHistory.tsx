@@ -8,7 +8,6 @@ import {
   Users,
   CreditCard,
   AlertTriangle,
-  CheckCircle,
 } from "lucide-react";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
@@ -144,26 +143,6 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
       setProcessingCancellation(false);
       setCancellingBooking(null);
       setBookingDetails(null);
-    }
-  };
-
-  const handleCompletePayment = async (booking: BookingDto) => {
-    try {
-      console.log("Attempting to complete payment for booking:", booking.bookingId);
-      
-      // admin confirm booking API 호출
-      await services.booking.adminConfirmBooking(booking.bookingId);
-      
-      console.log("Payment completed successfully");
-      
-      // 예약 목록 새로고침
-      const updatedBookings = await services.booking.getBookings();
-      setBookings(updatedBookings.bookings);
-      
-      alert("결제가 완료되어 예약이 확정되었습니다!");
-    } catch (error) {
-      console.error("Failed to complete payment:", error);
-      alert("결제 완료에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
@@ -391,7 +370,7 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                   <Calendar className="w-4 h-4" />
                   <span>
                     {booking.showDate
-                      ? `Show: ${formatDate(booking.showDate)}`
+                      ? `Scheduled: ${formatDate(booking.showDate)}`
                       : booking.status === 'PENDING'
                         ? `Expires: ${formatDate(expiresOverrides[booking.bookingNumber] || booking.expiresAt)}`
                         : booking.status === 'CONFIRMED'
@@ -524,15 +503,6 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
               )}
 
               <div className="flex gap-2 justify-end">
-                {booking.status === "PENDING" && (
-                  <Button 
-                    variant="default"
-                    onClick={() => handleCompletePayment(booking)}
-                  >
-                    Complete Payment
-                  </Button>
-                )}
-
                 {canCancelBooking(booking) && (
                   <Button
                     variant="destructive"
