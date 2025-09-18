@@ -529,6 +529,7 @@ export function SeatSelection({
 
     console.log("Loading performance data for ID:", performanceId);
     setLoading(true);
+    let autoConfirmFailed = false;
     try {
       // Load performance details
       console.log("Fetching performance details...");
@@ -536,7 +537,7 @@ export function SeatSelection({
         performanceId
       );
       console.log("Performance data:", performanceData);
-      setPerformance(performanceData);
+      setPerformance(performanceData as unknown as PerformanceResponse);
 
       // Try resolve venueId from performance or venue list
       try {
@@ -571,7 +572,7 @@ export function SeatSelection({
             "Using schedules from performance data:",
             performanceData.schedules
           );
-          setSchedules(performanceData.schedules);
+          setSchedules(performanceData.schedules as unknown as ScheduleResponse[]);
         } else {
           console.log("No schedules available");
           setSchedules([]);
@@ -645,6 +646,7 @@ export function SeatSelection({
   const loadSeats = async (scheduleId: number) => {
     console.log("loadSeats called with scheduleId:", scheduleId);
     setLoading(true);
+    let autoConfirmFailed = false;
     try {
       // Clear any previous selection when loading seats for a new schedule
       resetSelection();
@@ -823,6 +825,7 @@ export function SeatSelection({
     }
 
     setLoading(true);
+    let autoConfirmFailed = false;
     try {
       // Build booking seats from selected seat codes and seatMap sections
       if (!seatMap || !Array.isArray(seatMap.sections) || seatMap.sections.length === 0) {
@@ -866,23 +869,44 @@ export function SeatSelection({
       const bookingResponse = await services.booking.createBooking(bookingRequest);
       console.log("예약 응답:", bookingResponse);
 
-      // Store local override for expiration: 10 minutes from now if pending
+      let confirmedBooking = bookingResponse;
       try {
-        const status = String(bookingResponse.status || '').toUpperCase();
-        if (status === 'PENDING' && bookingResponse.bookingNumber) {
+        confirmedBooking = await services.booking.adminConfirmBooking(bookingResponse.bookingId);
+        console.log("예약이 즉시 확정되었습니다:", confirmedBooking);
+      } catch (confirmError) {
+        console.error("Failed to auto-confirm booking:", confirmError);
+        autoConfirmFailed = true;
+        try {
+          await services.booking.cancelBooking(bookingResponse.bookingId, {
+            reason: 'Auto-confirmation failed',
+          });
+          console.log('Pending booking rolled back after confirm failure');
+        } catch (rollbackError) {
+          console.error('Failed to rollback booking after confirm failure:', rollbackError);
+        }
+        throw confirmError;
+      }
+
+      // Remove any pending expiration overrides for this booking now that it is confirmed
+      try {
+        if (confirmedBooking.bookingNumber) {
           const key = 'bookingExpiresOverrides';
           const raw = localStorage.getItem(key);
-          const map = raw ? JSON.parse(raw) : {};
-          map[bookingResponse.bookingNumber] = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-          localStorage.setItem(key, JSON.stringify(map));
+          if (raw) {
+            const map = JSON.parse(raw);
+            if (map && typeof map === 'object' && confirmedBooking.bookingNumber in map) {
+              delete map[confirmedBooking.bookingNumber];
+              localStorage.setItem(key, JSON.stringify(map));
+            }
+          }
         }
       } catch (e) {
-        console.warn('Failed to persist booking expiration override', e);
+        console.warn('Failed to clear booking expiration override', e);
       }
 
       // Persist selected seat codes for this booking (for display when backend doesn't return seatCodes)
       try {
-        if (bookingResponse.bookingNumber) {
+        if (confirmedBooking.bookingNumber) {
           const key = 'bookingSeatCodes';
           const raw = localStorage.getItem(key);
           const map = raw ? JSON.parse(raw) : {};
@@ -890,7 +914,7 @@ export function SeatSelection({
             ? selectedSeatCodes
             : Array.from(selectorSelectedCodes)) as string[];
           if (Array.isArray(codesToPersist) && codesToPersist.length > 0) {
-            map[bookingResponse.bookingNumber] = codesToPersist;
+            map[confirmedBooking.bookingNumber] = codesToPersist;
             localStorage.setItem(key, JSON.stringify(map));
           }
         }
@@ -898,13 +922,17 @@ export function SeatSelection({
         console.warn('Failed to persist booking seat codes', e);
       }
 
-      alert(`Booking confirmed! Booking number: ${bookingResponse.bookingNumber}`);
+      alert(`Booking confirmed! Booking number: ${confirmedBooking.bookingNumber}`);
       // Clear current selection after booking completes
       resetSelection();
       onComplete();
     } catch (error) {
       console.error("Failed to create booking:", error);
-      alert("Booking failed. Please try again.");
+      if (autoConfirmFailed) {
+        alert('예약 확정 중 문제가 발생하여 예약이 취소되었습니다. 다시 시도해주세요.');
+      } else {
+        alert("Booking failed. Please try again.");
+      }
 
       // 예약 실패 시 좌석 상태를 다시 조회하여 최신 상태로 업데이트
       console.log("예약 실패로 인한 좌석 상태 재조회 시작...");

@@ -291,6 +291,8 @@ export interface BookingDto {
   performanceTitle?: string; // 공연 제목 추가
   showDate?: string; // date-time format
   seats?: BookingSeatDto[]; // 목록 응답에도 좌석 상세 포함 가능
+  seatCodes?: string[]; // 좌석 코드 배열 추가
+  seatZone?: string; // 좌석 구역 추가
   seatCount: number;
   totalAmount: number;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
