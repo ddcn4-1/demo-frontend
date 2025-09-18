@@ -528,3 +528,4 @@ export interface ApiResponseQueueStatusList {
     success: boolean;
     error?: string;
     timestamp?: string;
+}
