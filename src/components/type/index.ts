@@ -1,83 +1,127 @@
 export interface User {
-    user_id: number;
-    email: string;
-    username: string;
-    name: string;
-    phone: string;
-    role: 'USER' | 'ADMIN' | 'DevOps' | 'Dev';
-    status: 'active' | 'inactive' | 'suspended';
-    created_at: string;
-    last_login?: string;
+  user_id: number;
+  email: string;
+  username: string;
+  name: string;
+  phone: string;
+  role: 'USER' | 'ADMIN' | 'DEVOPS' | 'DEV';
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  created_at?: string;
+  last_login?: string;
+}
+
+export interface UserResponse {
+  userId: number;
+  email: string;
+  username: string;
+  name: string;
+  phone: string;
+  role: 'USER' | 'ADMIN' | 'DEVOPS' | 'DEV';
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  created_at?: string;
+  last_login?: string;
 }
 
 export interface Venue {
-    venue_id: number;
-    name: string;
-    address: string;
-    city: string;
-    total_capacity: number;
-    created_at: string;
+  venue_id: number;
+  venue_name: string;
+  address: string;
+  description: string;
+  contact: string;
+  total_capacity: number;
+  created_at: string;
+}
+
+export interface VenueResponse {
+  venueId: number;
+  venueName: string;
+  address: string;
+  description: string;
+  contact: string;
+  totalCapacity: number;
+  created_at: string;
 }
 
 export interface Performance {
-    performance_id: number;
-    title: string;
-    description?: string;
-    venue: string;
-    venue_name?: string; // alias for venue
-    venue_id?: number;
-    theme: string;
-    poster_url: string;
-    price: number;
-    base_price?: number; // alias for price
-    status:
-        | 'UPCOMING'
-        | 'ONGOING'
-        | 'ENDED'
-        | 'CANCELLED'
-        | 'SCHEDULED'
-        | 'COMPLETED';
-    start_date: string;
-    end_date: string;
-    running_time: number;
-    venue_address: string;
-    total_bookings?: number;
-    revenue?: number;
-    schedules: Array<{
-        schedule_id: number;
-        show_datetime: string;
-        available_seats: number;
-        total_seats: number;
-        status: string;
-    }>;
+  performance_id: number;
+  title: string;
+  description?: string;
+  venue: string;
+  venue_name?: string; // alias for venue
+  venue_id: number;
+  theme: string;
+  poster_url: string;
+  price: number;
+  base_price: number; // alias for price
+  status:
+  | 'UPCOMING'
+  | 'ONGOING'
+  | 'ENDED'
+  | 'CANCELLED';
+  start_date: string;
+  end_date: string;
+  running_time: number;
+  venue_address: string;
+  total_bookings?: number;
+  revenue?: number;
+  schedules: Array<{
+    schedule_id: number;
+    show_datetime: string;
+    available_seats: number;
+    total_seats: number;
+    status: string;
+  }>;
+}
+
+export interface PerformanceRequest {
+  venueId: number;
+  title: string;
+  description: string;
+  theme: string;
+  posterUrl: string;
+  basePrice: number;
+  startDate: string;
+  endDate: string;
+  runningTime: number;
+  status:
+  | 'UPCOMING'
+  | 'ONGOING'
+  | 'ENDED'
+  | 'CANCELLED';
+  // schedules: Array<{
+  //   schedule_id: number;
+  //   show_datetime: string;
+  //   available_seats: number;
+  //   total_seats: number;
+  //   status: string;
+  // }>;
 }
 
 export interface PerformanceResponse {
-    performanceId: number;
-    title: string;
-    venue: string;
-    theme: string;
-    posterUrl: string;
-    price: number;
-    status:
-        | 'UPCOMING'
-        | 'ONGOING'
-        | 'ENDED'
-        | 'CANCELLED'
-        | 'SCHEDULED'
-        | 'COMPLETED';
-    startDate: string;
-    endDate: string;
-    runningTime: number;
-    venueAddress: string;
-    description?: string;
-    schedules: Array<{
-        scheduleId: number;
-        showDatetime: string;
-        availableSeats: number;
-        totalSeats: number;
-        status: string;
-    }>;
+  performanceId: number;
+  title: string;
+  venue: string;
+  theme: string;
+  posterUrl: string;
+  price: number;
+  status:
+  | 'UPCOMING'
+  | 'ONGOING'
+  | 'ENDED'
+  | 'CANCELLED';
+  startDate: string;
+  endDate: string;
+  runningTime: number;
+  venueAddress: string;
+  venueId: number;
+  description?: string;
+  schedules: Array<{
+    scheduleId: number;
+    showDatetime: string;
+    availableSeats: number;
+    totalSeats: number;
+    status: string;
+  }>;
 }
 
 //   Performance DTOs
@@ -98,60 +142,60 @@ export interface PerformanceResponse {
 //   }
 
 export interface PerformanceSchedule {
-    schedule_id: number;
-    show_datetime: string;
-    total_seats: number;
-    available_seats: number;
-    base_price?: number;
-    status: 'SCHEDULED' | 'CANCELLED' | 'COMPLETED' | 'ONGOING';
-    created_at: string;
+  schedule_id: number;
+  show_datetime: string;
+  total_seats: number;
+  available_seats: number;
+  base_price?: number;
+  status: 'OPEN' | 'CLOSED' | 'SOLDOUT';
+  created_at: string;
 }
 
 export interface Seat {
-    seat_id: number;
-    venue_id: number;
-    seat_row: string;
-    seat_number: string;
-    seat_grade: 'VIP' | 'Premium' | 'S' | 'A' | 'R';
-    seat_price: number;
-    is_available: boolean;
+  seat_id: number;
+  venue_id: number;
+  seat_row: string;
+  seat_number: string;
+  seat_grade: 'VIP' | 'Premium' | 'S' | 'A' | 'R';
+  seat_price: number;
+  is_available: boolean;
 }
 
 export interface Booking {
-    booking_id: number;
-    booking_number: string;
-    user_id: number;
-    performance_id: number;
-    performance_title: string;
-    venue_name: string;
-    show_datetime: string;
-    seat_count: number;
-    total_amount: number;
-    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
-    booked_at: string;
-    cancelled_at?: string;
-    cancellation_reason?: string;
-    refund_status?: 'PENDING' | 'PROCESSING' | 'COMPLETED';
-    refund_amount?: number;
-    seats: Array<{
-        seat_id: number;
-        seat_row: string;
-        seat_number: string;
-        seat_grade: string;
-        seat_price: number;
-    }>;
+  booking_id: number;
+  booking_number: string;
+  user_id: number;
+  performance_id: number;
+  performance_title?: string;
+  venue_name?: string;
+  show_datetime?: string;
+  seat_count: number;
+  total_amount: number;
+  status: 'PENDING' | 'BOOKED' | 'CONFIRMED' | 'CANCELLED';
+  booked_at: string;
+  cancelled_at?: string;
+  cancellation_reason?: string;
+  refund_status?: 'REQUESTED' | 'PROCESSING' | 'COMPLETED' | 'REJECTED';
+  refund_amount?: number;
+  seats?: BookingSeatDto[];
+}
+
+export interface AdminBooking extends Booking {
+  user_name: string;
+  user_email: string;
+  payment_status: 'PENDING' | 'COMPLETED' | 'FAILED';
 }
 
 export interface SystemMetrics {
-    totalUsers: number;
-    totalBookings: number;
-    totalRevenue: number;
-    activePerformances: number;
-    serverStatus: 'online' | 'offline' | 'maintenance';
-    memoryUsage: number;
-    cpuUsage: number;
-    diskUsage: number;
-    uptime: string;
+  totalUsers: number;
+  totalBookings: number;
+  totalRevenue: number;
+  activePerformances: number;
+  serverStatus: 'online' | 'offline' | 'maintenance';
+  memoryUsage: number;
+  cpuUsage: number;
+  diskUsage: number;
+  uptime: string;
 }
 
 // Common Response Types
@@ -427,7 +471,6 @@ export interface ApiResponse<T> {
     role?: "USER" | "ADMIN";
   }
 
-
 // Queue 관련 타입 정의
 export interface TokenIssueRequest {
     performanceId: number;
@@ -485,4 +528,3 @@ export interface ApiResponseQueueStatusList {
     success: boolean;
     error?: string;
     timestamp?: string;
-}
