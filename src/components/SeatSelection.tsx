@@ -14,6 +14,7 @@ import {
   UserInfo,
   SeatMapJson,
   SeatMapSection,
+  GetBookingDetail200ResponseDto,
 } from "./type/index";
 // Removed ScrollArea for simpler overflow handling
 import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
@@ -875,16 +876,29 @@ export function SeatSelection({
         console.log("예약이 즉시 확정되었습니다:", confirmedBooking);
       } catch (confirmError) {
         console.error("Failed to auto-confirm booking:", confirmError);
-        autoConfirmFailed = true;
+
+        let verifiedBooking: GetBookingDetail200ResponseDto | null = null;
         try {
-          await services.booking.cancelBooking(bookingResponse.bookingId, {
-            reason: 'Auto-confirmation failed',
-          });
-          console.log('Pending booking rolled back after confirm failure');
-        } catch (rollbackError) {
-          console.error('Failed to rollback booking after confirm failure:', rollbackError);
+          verifiedBooking = await services.booking.adminGetBookingDetail(bookingResponse.bookingId);
+        } catch (statusCheckError) {
+          console.error('Failed to verify booking status after confirm error:', statusCheckError);
         }
-        throw confirmError;
+
+        if (verifiedBooking?.status === 'CONFIRMED') {
+          confirmedBooking = verifiedBooking;
+          console.warn('Auto-confirmation succeeded but follow-up fetch failed. Proceeding with confirmed booking.');
+        } else {
+          autoConfirmFailed = true;
+          try {
+            await services.booking.cancelBooking(bookingResponse.bookingId, {
+              reason: 'Auto-confirmation failed',
+            });
+            console.log('Pending booking rolled back after confirm failure');
+          } catch (rollbackError) {
+            console.error('Failed to rollback booking after confirm failure:', rollbackError);
+          }
+          throw confirmError;
+        }
       }
 
       // Remove any pending expiration overrides for this booking now that it is confirmed
@@ -934,16 +948,15 @@ export function SeatSelection({
         alert("Booking failed. Please try again.");
       }
 
+      // Clear any stale seat selections before prompting the user again
+      resetSelection();
+
       // 예약 실패 시 좌석 상태를 다시 조회하여 최신 상태로 업데이트
       console.log("예약 실패로 인한 좌석 상태 재조회 시작...");
       try {
         const seatResponse = await services.seat.getScheduleSeats(selectedSchedule);
         console.log("좌석 상태 재조회 완료:", seatResponse);
         setSeats(seatResponse.data.seats);
-        // 선택된 좌석 초기화 (상태가 변경되었을 수 있으므로)
-        setSelectedSeats([]);
-        setSelectedSeatCodes([]);
-        setSelectedSeatIdsFromSelector([]);
       } catch (refreshError) {
         console.error("좌석 상태 재조회 실패:", refreshError);
       }
