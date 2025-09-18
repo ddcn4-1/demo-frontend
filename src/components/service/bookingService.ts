@@ -131,14 +131,4 @@ export const bookingService = {
       `/v1/admin/bookings/${bookingId}`
     );
   },
-
-  // Confirms a pending booking - Admin only (PUT)
-  async adminConfirmBooking(
-    bookingId: number
-  ): Promise<GetBookingDetail200ResponseDto> {
-    await apiClient.put<void>(`/v1/admin/bookings/${bookingId}/confirm`);
-    return apiClient.get<GetBookingDetail200ResponseDto>(
-      `/v1/admin/bookings/${bookingId}`
-    );
-  },
 };

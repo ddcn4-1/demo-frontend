@@ -1,4 +1,4 @@
-import { apiClient } from "../../libs/api-client";
+import { apiClient } from "./apiService";
 import {
   ApiResponseSeatAvailabilityResponse,
   SeatLockRequest,

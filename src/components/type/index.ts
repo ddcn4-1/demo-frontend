@@ -171,7 +171,7 @@ export interface Booking {
   show_datetime?: string;
   seat_count: number;
   total_amount: number;
-  status: 'PENDING' | 'BOOKED' | 'CONFIRMED' | 'CANCELLED';
+  status: 'CONFIRMED' | 'CANCELLED';
   booked_at: string;
   cancelled_at?: string;
   cancellation_reason?: string;
@@ -295,7 +295,7 @@ export interface BookingDto {
   seatZone?: string; // 좌석 구역 추가
   seatCount: number;
   totalAmount: number;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  status: 'CONFIRMED' | 'CANCELLED';
   expiresAt: string;
   bookedAt: string;
   cancelledAt?: string;
@@ -511,4 +511,3 @@ export interface VenueApiResponse {
   seatMapUrl: string;
   seatMapJson: SeatMapJson;
 }
-

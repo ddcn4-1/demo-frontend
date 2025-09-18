@@ -36,7 +36,6 @@ import {
     Eye,
     XCircle,
     CheckCircle,
-    Clock,
 } from 'lucide-react';
 
 interface BookingManagementProps {
@@ -69,8 +68,7 @@ const transformAdminBookingData = (
         seats: response.seats,
         user_name: user?.name || 'Unknown User',
         user_email: user?.email || 'unknown@email.com',
-        payment_status: (response.status === 'CONFIRMED' ? 'COMPLETED' :
-            response.status === 'PENDING' ? 'PENDING' : 'COMPLETED') as 'PENDING' | 'COMPLETED' | 'FAILED'
+        payment_status: (response.status === 'CONFIRMED' ? 'COMPLETED' : 'FAILED') as 'PENDING' | 'COMPLETED' | 'FAILED'
     };
 
     return transformed;
@@ -81,7 +79,7 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
     const [filteredBookings, setFilteredBookings] = useState<AdminBooking[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'CONFIRMED' | 'CANCELLED'>('all');
     const [paymentFilter, setPaymentFilter] = useState<string>('all');
     const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null);
 
@@ -217,8 +215,6 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
         switch (status) {
             case 'CONFIRMED':
                 return 'default';
-            case 'PENDING':
-                return 'secondary';
             case 'CANCELLED':
                 return 'destructive';
             default:
@@ -304,7 +300,7 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
             </div>
 
             {/* Booking Stats */}
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardContent className="p-4">
                         <div className="flex items-center gap-2">
@@ -317,26 +313,6 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
                                     {
                                         bookings.filter(
                                             (b) => b.status === 'CONFIRMED'
-                                        ).length
-                                    }
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2">
-                            <Clock className="w-5 h-5 text-yellow-500" />
-                            <div>
-                                <p className="text-sm text-muted-foreground">
-                                    Pending
-                                </p>
-                                <p className="text-xl font-medium">
-                                    {
-                                        bookings.filter(
-                                            (b) => b.status === 'PENDING'
                                         ).length
                                     }
                                 </p>
@@ -408,7 +384,9 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
 
                         <Select
                             value={statusFilter}
-                            onValueChange={setStatusFilter}
+                            onValueChange={(value) =>
+                                setStatusFilter(value as 'all' | 'CONFIRMED' | 'CANCELLED')
+                            }
                         >
                             <SelectTrigger className="w-40">
                                 <Filter className="w-4 h-4 mr-2" />
@@ -419,7 +397,6 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
                                 <SelectItem value="CONFIRMED">
                                     Confirmed
                                 </SelectItem>
-                                <SelectItem value="PENDING">Pending</SelectItem>
                                 <SelectItem value="CANCELLED">
                                     Cancelled
                                 </SelectItem>
@@ -571,16 +548,6 @@ export function BookingManagement({ permissions }: BookingManagementProps) {
                                                     )}
                                                 </DialogContent>
                                             </Dialog>
-
-                                            {booking.status === 'PENDING' && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleConfirmBooking(booking.booking_id)}
-                                                >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                </Button>
-                                            )}
 
                                             {booking.status !== 'CANCELLED' && (
                                                 <Button
