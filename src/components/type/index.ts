@@ -537,6 +537,15 @@ export interface QueueStatusResponse {
     performanceTitle?: string;
 }
 
+export interface QueueStatus {
+    queueId: string;
+    position: number;
+    totalInQueue: number;
+    estimatedWaitTime: number;
+    status: 'WAITING_FOR_CONNECTION' | 'ENTER_QUEUE' | 'WAITING' | 'AVAILABLE' | 'EXPIRED' | 'COMPLETED';
+    sessionEndTime?: Date;
+}
+
 // API Response 타입들
 export interface ApiResponseTokenIssue {
     message?: string;
@@ -562,6 +571,10 @@ export interface ApiResponseQueueStatusList {
     timestamp?: string;
 }
 
+export interface QueueCheckRequest {
+    performanceId: number;
+    scheduleId: number;
+}
 
 export interface QueueCheckResponse {
     requiresQueue: boolean;
@@ -594,3 +607,4 @@ export interface SessionReleaseRequest {
     userId: number;
     reason?: string;
 }
+
