@@ -6,6 +6,7 @@ import { ArrowLeft, Users, X } from "lucide-react";
 import services from "./service/apiService";
 import {serverAPI} from "./service/apiService";
 import { venueService } from "./service/venueService";
+import { queueService } from "./service/queueService";
 import {
   SeatDto,
   CreateBookingRequestDto,
@@ -808,6 +809,39 @@ export function SeatSelection({
     [seats]
   );
 
+    // 토큰이 활성화될 때까지 대기하는 헬퍼 함수
+    const waitForTokenActive = async (token: string): Promise<void> => {
+        const maxAttempts = 60; // 최대 1분 대기
+        let attempts = 0;
+
+        while (attempts < maxAttempts) {
+            try {
+                const statusResponse = await queueService.getTokenStatus(token);
+
+                if (statusResponse.data?.status === 'ACTIVE') {
+                    console.log('토큰 활성화 완료:', token);
+                    return; // 활성화됨
+                }
+
+                if (['EXPIRED', 'CANCELLED'].includes(statusResponse.data?.status || '')) {
+                    throw new Error('토큰이 만료되었습니다. 다시 시도해주세요.');
+                }
+
+                console.log(`토큰 활성화 대기 중... (${attempts + 1}/${maxAttempts})`);
+
+                // 1초 대기
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                attempts++;
+            } catch (error) {
+                console.error('토큰 상태 확인 중 오류:', error);
+                attempts++;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        throw new Error('토큰 활성화 시간이 초과되었습니다. 다시 시도해주세요.');
+    };
+
   const handleBooking = useCallback(async () => {
     if (!selectedSchedule) return;
 
@@ -827,7 +861,9 @@ export function SeatSelection({
 
     setLoading(true);
     let autoConfirmFailed = false;
-    try {
+    let queueToken: string | null = null;
+
+      try {
       // Build booking seats from selected seat codes and seatMap sections
       if (!seatMap || !Array.isArray(seatMap.sections) || seatMap.sections.length === 0) {
         alert('좌석 지도가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
@@ -840,6 +876,57 @@ export function SeatSelection({
         alert('좌석을 선택해주세요.');
         return;
       }
+        // Step 2: 대기열 체크
+        console.log("대기열 체크 시작...");
+
+        try {
+            const queueCheck = await queueService.checkQueueRequirement(
+                performanceId,
+                selectedSchedule
+            );
+
+            console.log("대기열 체크 결과:", queueCheck.data);
+
+            if (queueCheck.data?.requiresQueue) {
+                // 대기열 필요 - 토큰 발급
+                console.log("대기열이 필요합니다. 토큰 발급 중...");
+
+                queueToken = queueCheck.data?.sessionId ?? null;  // ✅ 이제 가능
+
+                if (!queueToken) {
+                    throw new Error('대기열 토큰 발급에 실패했습니다.');
+                }
+
+                console.log("토큰 발급 완료:", queueToken);
+
+                // 토큰이 ACTIVE 상태가 될 때까지 대기
+                if (queueCheck.data?.status !== 'ACTIVE') {
+                    console.log("토큰 활성화 대기 중...");
+                    alert('대기열 순서를 기다리고 있습니다. 잠시만 기다려주세요...');
+                    await waitForTokenActive(queueToken);
+                    alert('예매 진행이 가능합니다!');
+                }
+
+
+                // localStorage에 토큰 저장 (확인 후 삭제)
+                localStorage.setItem('queueToken', queueToken);
+
+            } else if (queueCheck.data?.canProceedDirectly) {
+                // 바로 입장 가능
+                console.log("바로 예매 가능합니다. sessionId:", queueCheck.data.sessionId);
+                queueToken = queueCheck.data.sessionId;
+
+                if (queueToken) {
+                    localStorage.setItem('queueToken', queueToken);
+                }
+            } else {
+                console.warn("대기열 체크 응답이 예상과 다릅니다:", queueCheck.data);
+            }
+        } catch (queueError) {
+            console.error("대기열 처리 중 오류:", queueError);
+            // 대기열 오류는 경고만 하고 계속 진행 (개발 환경)
+            alert('대기열 확인 중 문제가 발생했지만 예매를 진행합니다.');
+        }
 
       // Prefer zone/grade from backend seats if available to avoid section overlap issues
       const codeToSeat = new Map<string, SeatDto>();
@@ -859,11 +946,10 @@ export function SeatSelection({
         };
       });
 
-      const queueToken = localStorage.getItem('queueToken') || undefined;
       const bookingRequest: CreateBookingRequestDto = {
         scheduleId: selectedSchedule,
         seats: seatsPayload,
-        queueToken,
+        queueToken:  queueToken,
       };
 
       console.log("예약 요청 데이터:", bookingRequest);

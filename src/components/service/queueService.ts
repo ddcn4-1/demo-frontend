@@ -1,110 +1,26 @@
 import {apiClient} from "./apiService";
 import { API_CONFIG } from '../../config/api.config';
+import type {
+    ApiResponseQueueCheck,
+    ApiResponseQueueStatus,
+    ApiResponseQueueStatusList,
+    ApiResponseString,
+    ApiResponseTokenIssue,
+    HeartbeatRequest,
+    QueueStatusResponse,
+    SessionReleaseRequest,
+    TokenIssueRequest,
+} from '../type';
 
-export interface TokenIssueRequest {
-    performanceId: number;
-}
-
-export interface TokenIssueResponse {
-    token: string;
-    status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
-    positionInQueue: number;
-    estimatedWaitTime: number;
-    message: string;
-    expiresAt: string;
-    bookingExpiresAt?: string;
-}
-
-export interface QueueStatusResponse {
-    token: string;
-    status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
-    positionInQueue: number;
-    estimatedWaitTime: number;
-    isActiveForBooking: boolean;
-    bookingExpiresAt?: string;
-    performanceTitle?: string;
-}
-// 새로운 인터페이스들
-export interface HeartbeatRequest {
-    performanceId: number;
-    scheduleId: number;
-}
-
-export interface SessionReleaseRequest {
-    performanceId: number;
-    scheduleId: number;
-    userId: number;
-    reason?: string;
-}
-
-
-export interface ApiResponseTokenIssue {
-    message?: string;
-    data: TokenIssueResponse;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
-
-export interface ApiResponseQueueStatus {
-    message?: string;
-    data: QueueStatusResponse;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
-
-export interface ApiResponseQueueStatusList {
-    message?: string;
-    data: QueueStatusResponse[];
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
-
-export interface ApiResponseString {
-    message?: string;
-    data: string;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
-export interface QueueCheckRequest {
-    performanceId: number;
-    scheduleId: number;
-}
-
-export interface QueueCheckResponse {
-    requiresQueue: boolean;
-    canProceedDirectly: boolean;
-    sessionId?: string;
-    message: string;
-    currentActiveSessions?: number;
-    maxConcurrentSessions?: number;
-    estimatedWaitTime?: number;
-    currentWaitingCount?: number;
-    reason?: string;
-}
-
-export interface ApiResponseQueueCheck {
-    message?: string;
-    data: QueueCheckResponse;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
 
 class QueueService {
     private heartbeatRetryCount = 0;
     private maxHeartbeatRetries = 3;
-    /**
-     * 대기열 필요성 확인
-     */
     async checkQueueRequirement(
         performanceId: number,
         scheduleId: number
     ): Promise<ApiResponseQueueCheck> {
-        const requestData: QueueCheckRequest = {
+        const requestData = {
             performanceId,
             scheduleId
         };
@@ -114,29 +30,17 @@ class QueueService {
                 '/api/v1/queue/check',
                 requestData
             );
-            return response;
-        } catch (error: any) {
-            console.error('Queue requirement check failed:', error);
 
-            // 오류 시 안전하게 대기열로 유도
-            return {
-                success: false,
-                message: 'Queue check failed',
-                data: {
-                    requiresQueue: true,
-                    canProceedDirectly: false,
-                    message: '시스템 오류로 인해 대기열에 참여합니다.',
-                    currentActiveSessions: 10,
-                    maxConcurrentSessions: 10,
-                    estimatedWaitTime: 120,
-                    currentWaitingCount: 5,
-                    reason: '시스템 오류'
-                }
-            };
+            console.log('Token received in sessionId:', response.data?.sessionId);
+            return response;
+
+        } catch (error: any) {
+            console.error('토큰 요청 실패:', error);
+            throw error;
         }
     }
     /**
-     * 대기열 토큰 발급
+     * 대기열 토큰 발급 todo .곧 삭제
      */
     async issueToken(performanceId: number): Promise<ApiResponseTokenIssue> {
         console.log('Queue Service - Issuing token for performance:', performanceId);

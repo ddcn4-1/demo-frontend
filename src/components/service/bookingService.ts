@@ -60,12 +60,19 @@ export const bookingService = {
   },
 
   async createBooking(
-    bookingData: CreateBookingRequestDto
+    bookingData: CreateBookingRequestDto,
+    queueToken?: string
   ): Promise<CreateBookingResponseDto> {
+      const requestData = {
+          ...bookingData,
+          queueToken: queueToken || undefined  // 토큰이 있으면 포함, 없으면 undefined
+      };
+      console.log('Booking created with data:', requestData);
     return apiClient.post<CreateBookingResponseDto>(
       "/v1/bookings",
-      bookingData
-    );
+        requestData
+    )
+
   },
 
   async getBookingDetail(
