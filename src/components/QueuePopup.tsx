@@ -271,8 +271,14 @@ export function QueuePopup({
             setError(errorMessage);
         };
 
+
         // 향상된 폴링 사용 (재시도 기능 포함) 3000ms 간격
-        queueService.pollQueueStatusWithRetry(token, onStatusUpdate, onPollingError, 3000)
+        queueService
+            .pollQueueStatusWithRetry(token, onStatusUpdate, onPollingError, {
+                pollInterval: 3000,
+                performanceId: performance.performance_id,
+                scheduleId: selectedSchedule?.schedule_id,
+            })
             .then(stopFunction => {
                 stopPollingRef.current = stopFunction;
             })

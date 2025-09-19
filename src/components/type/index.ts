@@ -517,6 +517,13 @@ export interface TokenIssueRequest {
     performanceId: number;
 }
 
+export interface TokenActivateRequest {
+    token: string;
+    performanceId: number;
+    scheduleId: number;
+}
+
+//todo.곧 삭제
 export interface TokenIssueResponse {
     token: string;
     status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';

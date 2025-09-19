@@ -9,6 +9,7 @@ import type {
     HeartbeatRequest,
     QueueStatusResponse,
     SessionReleaseRequest,
+    TokenActivateRequest,
     TokenIssueRequest,
 } from '../type';
 
@@ -83,6 +84,28 @@ class QueueService {
 
         return apiClient.delete<ApiResponseString>(
             `/api/v1/queue/token/${token}`
+        );
+    }
+
+    /**
+     * 대기열 토큰 활성화 시도
+     */
+    async activateToken(
+        token: string,
+        performanceId: number,
+        scheduleId: number
+    ): Promise<ApiResponseQueueStatus> {
+        console.log('Queue Service - Activating token:', token, 'performance:', performanceId, 'schedule:', scheduleId);
+
+        const requestData: TokenActivateRequest = {
+            token,
+            performanceId,
+            scheduleId,
+        };
+
+        return apiClient.post<ApiResponseQueueStatus>(
+            '/api/v1/queue/activate',
+            requestData
         );
     }
     /**
@@ -222,6 +245,21 @@ class QueueService {
     }
 
     /**
+     * API 응답의 필드명을 UI에서 사용하는 형태로 정규화
+     */
+    private normalizeQueueStatus(status: any): QueueStatusResponse {
+        if (!status) {
+            return status as QueueStatusResponse;
+        }
+
+        return {
+            ...status,
+            isActiveForBooking:
+                status.isActiveForBooking ?? status.activeForBooking ?? false,
+        } as QueueStatusResponse;
+    }
+
+    /**
      * 지연 함수
      */
     private delay(ms: number): Promise<void> {
@@ -243,10 +281,11 @@ class QueueService {
                 try {
                     const response = await this.getTokenStatus(token);
                     if (response.success && response.data) {
-                        onStatusUpdate(response.data);
+                        const status = this.normalizeQueueStatus(response.data);
+                        onStatusUpdate(status);
 
                         // ACTIVE 또는 완료 상태면 폴링 중단
-                        if (['ACTIVE', 'USED', 'EXPIRED', 'CANCELLED'].includes(response.data.status)) {
+                        if (['ACTIVE', 'USED', 'EXPIRED', 'CANCELLED'].includes(status.status)) {
                             break;
                         }
                     }
@@ -275,22 +314,53 @@ class QueueService {
         token: string,
         onStatusUpdate: (status: QueueStatusResponse) => void,
         onError: (error: string) => void,
-        pollInterval: number = 3000,
-        maxRetries: number = 5
+        options: {
+            pollInterval?: number;
+            maxRetries?: number;
+            performanceId?: number;
+            scheduleId?: number;
+        } = {}
     ): Promise<() => void> {
         let isPolling = true;
         let retryCount = 0;
+        const {
+            pollInterval = 3000,
+            maxRetries = 5,
+            performanceId,
+            scheduleId,
+        } = options;
 
         const poll = async () => {
             while (isPolling && retryCount < maxRetries) {
                 try {
                     const response = await this.getTokenStatus(token);
                     if (response.success && response.data) {
-                        onStatusUpdate(response.data);
+                        let status = this.normalizeQueueStatus(response.data);
                         retryCount = 0; // 성공시 재시도 카운트 리셋
 
+                        if (
+                            status.status === 'WAITING' &&
+                            typeof performanceId === 'number' &&
+                            typeof scheduleId === 'number'
+                        ) {
+                            try {
+                                const activationResponse = await this.activateToken(
+                                    token,
+                                    performanceId,
+                                    scheduleId
+                                );
+                                if (activationResponse.success && activationResponse.data) {
+                                    status = this.normalizeQueueStatus(activationResponse.data);
+                                }
+                            } catch (activationError) {
+                                console.warn('Queue activation attempt failed:', activationError);
+                            }
+                        }
+
+                        onStatusUpdate(status);
+
                         // ACTIVE 또는 완료 상태면 폴링 중단
-                        if (['ACTIVE', 'USED', 'EXPIRED', 'CANCELLED'].includes(response.data.status)) {
+                        if (['ACTIVE', 'USED', 'EXPIRED', 'CANCELLED'].includes(status.status)) {
                             break;
                         }
                     } else {
