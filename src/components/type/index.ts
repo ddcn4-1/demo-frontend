@@ -570,3 +570,40 @@ export interface ApiResponseQueueStatusList {
     error?: string;
     timestamp?: string;
 }
+
+export interface QueueCheckRequest {
+    performanceId: number;
+    scheduleId: number;
+}
+
+export interface QueueCheckResponse {
+    requiresQueue: boolean;
+    canProceedDirectly: boolean;
+    sessionId?: string;
+    message: string;
+    currentActiveSessions?: number;
+    maxConcurrentSessions?: number;
+    estimatedWaitTime?: number;
+    currentWaitingCount?: number;
+    reason?: string;
+}
+
+export interface ApiResponseQueueCheck {
+    message?: string;
+    data: QueueCheckResponse;
+    success: boolean;
+    error?: string;
+    timestamp?: string;
+}
+
+export interface HeartbeatRequest {
+    performanceId: number;
+    scheduleId: number;
+}
+
+export interface SessionReleaseRequest {
+    performanceId: number;
+    scheduleId: number;
+    userId: number;
+    reason?: string;
+}

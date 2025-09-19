@@ -13,8 +13,7 @@ import {
     PerformanceRequest,
     AdminBooking,
 } from '../type/index';
-import { API_CONFIG, shouldUseMock } from '../../config/api.config';
-import { serverAPI as mockAPI } from '../../data/mockServer';
+import { API_CONFIG } from '../../config/api.config';
 
 import { bookingService } from './bookingService';
 import { seatService } from './seatService';
@@ -223,10 +222,6 @@ export default services;
 export const serverAPI = {
     // Public endpoints (no auth required)
     async getPerformances(): Promise<Performance[]> {
-        if (shouldUseMock('PERFORMANCES')) {
-            return await mockAPI.getPerformances();
-        }
-
         try {
             const backendResponse = await apiClient.get<PerformanceResponse[]>(
                 API_CONFIG.ENDPOINTS.PERFORMANCES
@@ -250,10 +245,6 @@ export const serverAPI = {
         venue?: string;
         status?: string;
     }): Promise<Performance[]> {
-        if (shouldUseMock('PERFORMANCES')) {
-            return await mockAPI.searchPerformances(searchParams);
-        }
-
         try {
             const queryString = new URLSearchParams(
                 Object.entries(searchParams).filter(
@@ -359,10 +350,6 @@ export const serverAPI = {
 
     // Booking endpoints
     async getAllBookings(): Promise<Booking[]> {
-        if (shouldUseMock('BOOKINGS')) {
-            return await mockAPI.getAllBookings();
-        }
-
         try {
             return await apiClient.get<Booking[]>(
                 API_CONFIG.ENDPOINTS.BOOKINGS
@@ -385,10 +372,6 @@ export const serverAPI = {
     },
 
     async getBookingsByUserId(userId: number): Promise<Booking[]> {
-        if (shouldUseMock('BOOKINGS')) {
-            return await mockAPI.getBookingsByUserId(userId);
-        }
-
         try {
             return await apiClient.get<Booking[]>(
                 `${API_CONFIG.ENDPOINTS.BOOKINGS}/user/${userId}`
@@ -400,10 +383,6 @@ export const serverAPI = {
     },
 
     async cancelBooking(bookingId: number, reason: string): Promise<boolean> {
-        if (shouldUseMock('BOOKINGS')) {
-            return await mockAPI.cancelBooking(bookingId, reason);
-        }
-
         try {
             await apiClient.post(
                 `${API_CONFIG.ENDPOINTS.BOOKINGS}/${bookingId}/cancel`,
@@ -452,10 +431,6 @@ export const serverAPI = {
 
     // Other endpoints
     async getUsers(): Promise<User[]> {
-        if (shouldUseMock('USERS')) {
-            return await mockAPI.getUsers();
-        }
-
         try {
             const backendResponse = await apiClient.get<UserResponse[]>(API_CONFIG.ENDPOINTS.USERS);
 
@@ -529,10 +504,6 @@ export const serverAPI = {
     },
 
     async getVenues(): Promise<Venue[]> {
-        if (shouldUseMock('VENUES')) {
-            return await mockAPI.getVenues();
-        }
-
         try {
             const backendResponse = await apiClient.get<VenueResponse[]>(API_CONFIG.ENDPOINTS.VENUES);
 
@@ -550,10 +521,6 @@ export const serverAPI = {
     },
 
     async getSeatsByVenueId(venueId: number): Promise<Seat[]> {
-        if (shouldUseMock('VENUES')) {
-            return await mockAPI.getSeatsByVenueId(venueId);
-        }
-
         try {
             return await apiClient.get<Seat[]>(
                 `${API_CONFIG.ENDPOINTS.VENUES}/${venueId}/seats`
@@ -565,18 +532,13 @@ export const serverAPI = {
     },
 
     async getSystemMetrics(): Promise<SystemMetrics> {
-        if (shouldUseMock('SYSTEM')) {
-            return await mockAPI.getSystemMetrics();
-        }
-
         try {
             return await apiClient.get<SystemMetrics>(
                 `${API_CONFIG.ENDPOINTS.SYSTEM}/metrics`
             );
         } catch (error) {
             console.error('Failed to fetch system metrics:', error);
-            // fallback to mock data
-            return await mockAPI.getSystemMetrics();
+            throw error;
         }
     },
 };

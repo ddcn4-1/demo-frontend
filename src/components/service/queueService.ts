@@ -1,98 +1,19 @@
-import {apiClient} from "./apiService";
+import { apiClient } from "./apiService";
 import { API_CONFIG } from '../../config/api.config';
-
-export interface TokenIssueRequest {
-    performanceId: number;
-}
-
-export interface TokenIssueResponse {
-    token: string;
-    status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
-    positionInQueue: number;
-    estimatedWaitTime: number;
-    message: string;
-    expiresAt: string;
-    bookingExpiresAt?: string;
-}
-
-export interface QueueStatusResponse {
-    token: string;
-    status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
-    positionInQueue: number;
-    estimatedWaitTime: number;
-    isActiveForBooking: boolean;
-    bookingExpiresAt?: string;
-    performanceTitle?: string;
-}
-// 새로운 인터페이스들
-export interface HeartbeatRequest {
-    performanceId: number;
-    scheduleId: number;
-}
-
-export interface SessionReleaseRequest {
-    performanceId: number;
-    scheduleId: number;
-    userId: number;
-    reason?: string;
-}
-
-
-export interface ApiResponseTokenIssue {
-    message?: string;
-    data: TokenIssueResponse;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
-
-export interface ApiResponseQueueStatus {
-    message?: string;
-    data: QueueStatusResponse;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
-
-export interface ApiResponseQueueStatusList {
-    message?: string;
-    data: QueueStatusResponse[];
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
-
-export interface ApiResponseString {
-    message?: string;
-    data: string;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
-export interface QueueCheckRequest {
-    performanceId: number;
-    scheduleId: number;
-}
-
-export interface QueueCheckResponse {
-    requiresQueue: boolean;
-    canProceedDirectly: boolean;
-    sessionId?: string;
-    message: string;
-    currentActiveSessions?: number;
-    maxConcurrentSessions?: number;
-    estimatedWaitTime?: number;
-    currentWaitingCount?: number;
-    reason?: string;
-}
-
-export interface ApiResponseQueueCheck {
-    message?: string;
-    data: QueueCheckResponse;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
-}
+import type {
+    ApiResponseQueueCheck,
+    ApiResponseQueueStatus,
+    ApiResponseQueueStatusList,
+    ApiResponseString,
+    ApiResponseTokenIssue,
+    HeartbeatRequest,
+    QueueCheckRequest,
+    QueueCheckResponse,
+    QueueStatusResponse,
+    SessionReleaseRequest,
+    TokenIssueRequest,
+    TokenIssueResponse,
+} from '../type';
 
 class QueueService {
     private heartbeatRetryCount = 0;
