@@ -34,7 +34,7 @@ export const seatService = {
   ): Promise<ApiResponseBoolean> {
     return apiClient.delete<ApiResponseBoolean>(
       `/api/v1/schedules/${scheduleId}/seats/lock`,
-      { data: request }
+      request
     );
   },
 
