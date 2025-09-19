@@ -14,6 +14,7 @@ import {
   UserInfo,
   SeatMapJson,
   SeatMapSection,
+  GetBookingDetail200ResponseDto,
 } from "./type/index";
 // Removed ScrollArea for simpler overflow handling
 import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
@@ -529,6 +530,7 @@ export function SeatSelection({
 
     console.log("Loading performance data for ID:", performanceId);
     setLoading(true);
+    let autoConfirmFailed = false;
     try {
       // Load performance details
       console.log("Fetching performance details...");
@@ -645,6 +647,7 @@ export function SeatSelection({
   const loadSeats = async (scheduleId: number) => {
     console.log("loadSeats called with scheduleId:", scheduleId);
     setLoading(true);
+    let autoConfirmFailed = false;
     try {
       // Clear any previous selection when loading seats for a new schedule
       resetSelection();
@@ -823,6 +826,7 @@ export function SeatSelection({
     }
 
     setLoading(true);
+    let autoConfirmFailed = false;
     try {
       // Build booking seats from selected seat codes and seatMap sections
       if (!seatMap || !Array.isArray(seatMap.sections) || seatMap.sections.length === 0) {
@@ -867,8 +871,6 @@ export function SeatSelection({
       console.log("예약 응답:", bookingResponse);
 
       const confirmedBooking = bookingResponse;
-
-      // Remove any pending expiration overrides for this booking now that it is confirmed
       try {
         if (confirmedBooking.bookingNumber) {
           const key = 'bookingExpiresOverrides';
@@ -909,7 +911,14 @@ export function SeatSelection({
       onComplete();
     } catch (error) {
       console.error("Failed to create booking:", error);
-      alert("Booking failed. Please try again.");
+      if (autoConfirmFailed) {
+        alert('예약 확정 중 문제가 발생하여 예약이 취소되었습니다. 다시 시도해주세요.');
+      } else {
+        alert("Booking failed. Please try again.");
+      }
+
+      // Clear any stale seat selections before prompting the user again
+      resetSelection();
 
       // Clear any stale seat selections before prompting the user again
       resetSelection();
