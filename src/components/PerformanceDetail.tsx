@@ -13,6 +13,7 @@ import {
     Ticket,
 } from 'lucide-react';
 import { Performance, PerformanceSchedule } from './type/index';
+import { QueuePopup } from './QueuePopup';
 
 interface PerformanceDetailProps {
     performance: Performance;
@@ -31,17 +32,18 @@ export function PerformanceDetail({
     const [selectedSchedule, setSelectedSchedule] =
         useState<PerformanceSchedule | null>(null);
 
-    const totalSeats =
-        performance.schedules?.reduce(
-            (sum, schedule) => sum + (schedule.total_seats || 0),
-            0
-        ) || 0;
+    const [showQueuePopup, setShowQueuePopup] = useState(false);
+    const [queueSchedule, setQueueSchedule] = useState<PerformanceSchedule | undefined>(undefined);
 
-    const availableSeats =
-        performance.schedules?.reduce(
-            (sum, schedule) => sum + (schedule.available_seats || 0),
-            0
-        ) || 0;
+    const totalSeats = performance.schedules?.reduce(
+        (sum, schedule) => sum + (schedule.total_seats || 0),
+        0
+    ) || 0;
+
+    const availableSeats = performance.schedules?.reduce(
+        (sum, schedule) => sum + (schedule.available_seats || 0),
+        0
+    ) || 0;
 
     const bookedSeats = totalSeats - availableSeats;
     const occupancyRate = totalSeats > 0 ? (bookedSeats / totalSeats) * 100 : 0;
@@ -110,7 +112,33 @@ export function PerformanceDetail({
         return statusLabels[status?.toUpperCase()] || status || 'Unknown';
     };
 
-    // data log
+    // 대기열 관련 핸들러 추가
+    const handleBookingClick = () => {
+        if (selectedSchedule) {
+            console.log('Starting queue process for performance:', performance.performance_id, 'schedule:', selectedSchedule.schedule_id);
+            setQueueSchedule(selectedSchedule);
+            setShowQueuePopup(true);
+        }
+    };
+
+    const handleQueueComplete = (perf: Performance, schedule?: PerformanceSchedule) => {
+        console.log('Queue completed, proceeding to seat selection');
+        setShowQueuePopup(false);
+        onBookNow(perf, schedule);
+    };
+
+    const handleQueueExpired = () => {
+        console.log('Queue expired');
+        setShowQueuePopup(false);
+        // 필요시 사용자에게 알림 표시
+        alert('대기열 세션이 만료되었습니다. 다시 시도해주세요.');
+    };
+
+    const handleQueueClose = () => {
+        console.log('Queue popup closed');
+        setShowQueuePopup(false);
+    };
+
     console.log('PerformanceDetail - Received performance data:', performance);
 
     return (
@@ -409,11 +437,11 @@ export function PerformanceDetail({
                                                 {selectedSchedule.total_seats >
                                                 0
                                                     ? (
-                                                          ((selectedSchedule.total_seats -
-                                                              selectedSchedule.available_seats) /
-                                                              selectedSchedule.total_seats) *
-                                                          100
-                                                      ).toFixed(1)
+                                                        ((selectedSchedule.total_seats -
+                                                                selectedSchedule.available_seats) /
+                                                            selectedSchedule.total_seats) *
+                                                        100
+                                                    ).toFixed(1)
                                                     : 0}
                                                 %
                                             </p>
@@ -427,33 +455,11 @@ export function PerformanceDetail({
                                             </p>
                                             <p>
                                                 Total Available Seats:{' '}
-                                                {performance.schedules?.reduce(
-                                                    (sum, schedule) =>
-                                                        sum +
-                                                        (schedule.available_seats ||
-                                                            0),
-                                                    0
-                                                ) || 0}{' '}
-                                                seats
+                                                {availableSeats} seats
                                             </p>
                                             <p>
-                                                Average Capacity per Show:{' '}
-                                                {performance.schedules?.length >
-                                                0
-                                                    ? Math.round(
-                                                          performance.schedules.reduce(
-                                                              (sum, schedule) =>
-                                                                  sum +
-                                                                  (schedule.total_seats ||
-                                                                      0),
-                                                              0
-                                                          ) /
-                                                              performance
-                                                                  .schedules
-                                                                  .length
-                                                      )
-                                                    : 0}{' '}
-                                                seats
+                                                Average Occupancy:{' '}
+                                                {occupancyRate.toFixed(1)}%
                                             </p>
                                         </>
                                     )}
@@ -486,7 +492,7 @@ export function PerformanceDetail({
                     </Card>
                 </div>
 
-                {/* Booking Sidebar */}
+                {/* Booking Sidebar - 대기열 로직 추가 */}
                 <div className="space-y-4">
                     <Card>
                         <CardHeader>
@@ -558,34 +564,22 @@ export function PerformanceDetail({
                                     <Button
                                         className="w-full"
                                         size="lg"
-                                        onClick={() =>
-                                            onBookNow(
-                                                performance,
-                                                selectedSchedule
-                                            )
-                                        }
+                                        onClick={handleBookingClick}
                                         disabled={
-                                            selectedSchedule.available_seats ===
-                                                0 ||
-                                            selectedSchedule.status ===
-                                                'SOLDOUT' ||
-                                            selectedSchedule.status ===
-                                                'COMPLETED' ||
-                                            selectedSchedule.status ===
-                                                'CANCELLED'
+                                            selectedSchedule.available_seats === 0 ||
+                                            selectedSchedule.status === 'SOLDOUT' ||
+                                            selectedSchedule.status === 'COMPLETED' ||
+                                            selectedSchedule.status === 'CANCELLED'
                                         }
                                     >
-                                        {selectedSchedule.available_seats ===
-                                            0 ||
+                                        {selectedSchedule.available_seats === 0 ||
                                         selectedSchedule.status === 'SOLDOUT'
                                             ? 'Sold Out'
-                                            : selectedSchedule.status ===
-                                              'COMPLETED'
-                                            ? 'Show Ended'
-                                            : selectedSchedule.status ===
-                                              'CANCELLED'
-                                            ? 'Cancelled'
-                                            : 'Select Seats'}
+                                            : selectedSchedule.status === 'COMPLETED'
+                                                ? 'Show Ended'
+                                                : selectedSchedule.status === 'CANCELLED'
+                                                    ? 'Cancelled'
+                                                    : 'Join Queue'}
                                     </Button>
                                 </>
                             ) : (
@@ -619,8 +613,7 @@ export function PerformanceDetail({
                             )}
 
                             <p className="text-xs text-muted-foreground text-center">
-                                Secure booking • Instant confirmation • Mobile
-                                tickets
+                                대기열 시스템을 통해 공정한 좌석 선택 기회를 제공합니다
                             </p>
                         </CardContent>
                     </Card>
@@ -704,6 +697,16 @@ export function PerformanceDetail({
                     </Card>
                 </div>
             </div>
+
+            {/* 대기열 팝업 추가 */}
+            <QueuePopup
+                isOpen={showQueuePopup}
+                performance={performance}
+                selectedSchedule={queueSchedule}
+                onClose={handleQueueClose}
+                onQueueComplete={handleQueueComplete}
+                onQueueExpired={handleQueueExpired}
+            />
         </div>
     );
 }

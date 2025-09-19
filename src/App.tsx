@@ -18,13 +18,17 @@ import { Button } from './components/ui/button';
 import { LogOut } from 'lucide-react';
 import { User, Performance, PerformanceSchedule } from './data/mockServer';
 import { QueuePopup } from './components/QueuePopup';
+import {TestConcurrency} from "./components/TestConcurrency";
+
+
+
 
 // Protected Route Component - redirects to login but preserves intended destination
 function ProtectedRoute({
-    children,
-    user,
-    redirectTo = '/login',
-}: {
+                            children,
+                            user,
+                            redirectTo = '/login',
+                        }: {
     children?: React.ReactNode;
     user: User | null;
     redirectTo?: string;
@@ -39,11 +43,11 @@ function ProtectedRoute({
 
 // Public Layout Component (for non-authenticated users)
 function PublicLayout({
-    user,
-    onLogin,
-    onLogout,
-    onOpenQueue,
-}: {
+                          user,
+                          onLogin,
+                          onLogout,
+                          onOpenQueue,
+                      }: {
     user: User | null;
     onLogin: (userData: User) => void;
     onLogout: () => void;
@@ -150,6 +154,11 @@ function PublicLayout({
                                 onOpenQueue={onOpenQueue}
                             />
                         }
+                    />
+                    {/* 🧪 테스트용 경로 추가 (여기에 추가!) */}
+                    <Route
+                        path="/test-concurrency"
+                        element={<TestConcurrency />}
                     />
 
                     {/* Protected Routes */}
@@ -262,9 +271,9 @@ function AdminLayout({ user, onLogout }: { user: User; onLogout: () => void }) {
 
 // Route Components for Performance Detail and Seat Selection
 function PerformanceDetailRoute({
-    user,
-    onOpenQueue,
-}: {
+                                    user,
+                                    onOpenQueue,
+                                }: {
     user: User | null;
     onOpenQueue: (
         performance: Performance,
