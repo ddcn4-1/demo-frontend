@@ -10,6 +10,9 @@ export interface ApiConfig {
     ADMIN_BOOKINGS: string;
     VENUES: string;
     SYSTEM: string;
+    QUEUE: string;
+    SEATS: string;
+
   };
   MOCK_ENDPOINTS?: string[];
 }
@@ -27,6 +30,8 @@ const development: ApiConfig = {
     BOOKINGS: "/api/bookings",
     VENUES: "/api/venues",
     SYSTEM: "/api/system",
+    QUEUE: "/api/v1/queue",
+    SEATS: "/api/v1",
   },
   // ENDPOINT 정의된 엔드포인트 중에서 MOCK_ENDPOINTS 목록에 있는 엔드포인트는 mock 데이터를 사용합니다.
   // MOCK_ENDPOINTS: ['USERS', 'SYSTEM', 'VENUES'],
@@ -44,6 +49,8 @@ const production: ApiConfig = {
     ADMIN_BOOKINGS: "/v1/admin/bookings",
     VENUES: "/api/venues",
     SYSTEM: "/api/system",
+    QUEUE: "/api/v1/queue",
+    SEATS: "/api/v1",
   },
   MOCK_ENDPOINTS: [],
 };
