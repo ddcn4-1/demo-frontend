@@ -3,7 +3,6 @@ import { Card, CardHeader, CardContent, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, Activity, TrendingUp, Server, Clock, AlertTriangle } from 'lucide-react';
-import { serverAPI } from '../../data/mockServer';
 
 interface SystemMetrics {
   timestamp: string;

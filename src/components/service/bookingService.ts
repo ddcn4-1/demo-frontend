@@ -59,13 +59,22 @@ export const bookingService = {
     return normalized;
   },
 
+
+    //todo queueToken 옵션 추가
   async createBooking(
-    bookingData: CreateBookingRequestDto
+    bookingData: CreateBookingRequestDto,
+    // queueToken?: string
   ): Promise<CreateBookingResponseDto> {
+      const requestData = {
+          ...bookingData,
+          // queueToken: queueToken || undefined  // 토큰이 있으면 포함, 없으면 undefined
+      };
+      console.log('Booking created with data:', requestData);
     return apiClient.post<CreateBookingResponseDto>(
       "/v1/bookings",
-      bookingData
-    );
+        requestData
+    )
+
   },
 
   async getBookingDetail(
@@ -127,16 +136,6 @@ export const bookingService = {
   async adminGetBookingDetail(
     bookingId: number
   ): Promise<GetBookingDetail200ResponseDto> {
-    return apiClient.get<GetBookingDetail200ResponseDto>(
-      `/v1/admin/bookings/${bookingId}`
-    );
-  },
-
-  // Confirms a pending booking - Admin only (PUT)
-  async adminConfirmBooking(
-    bookingId: number
-  ): Promise<GetBookingDetail200ResponseDto> {
-    await apiClient.put<void>(`/v1/admin/bookings/${bookingId}/confirm`);
     return apiClient.get<GetBookingDetail200ResponseDto>(
       `/v1/admin/bookings/${bookingId}`
     );

@@ -171,7 +171,7 @@ export interface Booking {
   show_datetime?: string;
   seat_count: number;
   total_amount: number;
-  status: 'PENDING' | 'BOOKED' | 'CONFIRMED' | 'CANCELLED';
+  status: 'CONFIRMED' | 'CANCELLED';
   booked_at: string;
   cancelled_at?: string;
   cancellation_reason?: string;
@@ -295,7 +295,7 @@ export interface BookingDto {
   seatZone?: string; // 좌석 구역 추가
   seatCount: number;
   totalAmount: number;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  status: 'CONFIRMED' | 'CANCELLED';
   expiresAt: string;
   bookedAt: string;
   cancelledAt?: string;
@@ -511,11 +511,19 @@ export interface VenueApiResponse {
   seatMapUrl: string;
   seatMapJson: SeatMapJson;
 }
+
 // Queue 관련 타입 정의
 export interface TokenIssueRequest {
     performanceId: number;
 }
 
+export interface TokenActivateRequest {
+    token: string;
+    performanceId: number;
+    scheduleId: number;
+}
+
+//todo.곧 삭제
 export interface TokenIssueResponse {
     token: string;
     status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
@@ -569,3 +577,41 @@ export interface ApiResponseQueueStatusList {
     error?: string;
     timestamp?: string;
 }
+
+export interface QueueCheckRequest {
+    performanceId: number;
+    scheduleId: number;
+}
+
+export interface QueueCheckResponse {
+    requiresQueue: boolean;
+    canProceedDirectly: boolean;
+    sessionId?: string;
+    message: string;
+    currentActiveSessions?: number;
+    maxConcurrentSessions?: number;
+    estimatedWaitTime?: number;
+    currentWaitingCount?: number;
+    reason?: string;
+}
+
+export interface ApiResponseQueueCheck {
+    message?: string;
+    data: QueueCheckResponse;
+    success: boolean;
+    error?: string;
+    timestamp?: string;
+}
+
+export interface HeartbeatRequest {
+    performanceId: number;
+    scheduleId: number;
+}
+
+export interface SessionReleaseRequest {
+    performanceId: number;
+    scheduleId: number;
+    userId: number;
+    reason?: string;
+}
+
