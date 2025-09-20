@@ -880,7 +880,7 @@ export function SeatSelection({
         console.log("대기열 체크 시작...");
 
         try {
-            const queueCheck = await queueService.checkQueueRequirement(
+            let queueCheck = await queueService.checkQueueRequirement(
                 performanceId,
                 selectedSchedule
             );
@@ -891,7 +891,7 @@ export function SeatSelection({
                 // 대기열 필요 - 토큰 발급
                 console.log("대기열이 필요합니다. 토큰 발급 중...");
 
-                queueToken = queueCheck.data?.sessionId ?? null;  // ✅ 이제 가능
+                queueToken = queueCheck.data?.sessionId ?? null;
 
                 if (!queueToken) {
                     throw new Error('대기열 토큰 발급에 실패했습니다.');
@@ -899,13 +899,13 @@ export function SeatSelection({
 
                 console.log("토큰 발급 완료:", queueToken);
 
-                // 토큰이 ACTIVE 상태가 될 때까지 대기
+                /*// 토큰이 ACTIVE 상태가 될 때까지 대기 (필요시)
                 if (queueCheck.data?.status !== 'ACTIVE') {
                     console.log("토큰 활성화 대기 중...");
                     alert('대기열 순서를 기다리고 있습니다. 잠시만 기다려주세요...');
                     await waitForTokenActive(queueToken);
                     alert('예매 진행이 가능합니다!');
-                }
+                }*/
 
 
                 // localStorage에 토큰 저장 (확인 후 삭제)
@@ -945,6 +945,7 @@ export function SeatSelection({
           colNum: colNumStr,
         };
       });
+
 
       const bookingRequest: CreateBookingRequestDto = {
         scheduleId: selectedSchedule,
