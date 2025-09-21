@@ -13,6 +13,7 @@ import {
     PerformanceRequest,
     AdminBooking,
     PresignedUrlResponse,
+    AdminPerformanceResponse,
 } from '../type/index';
 import { API_CONFIG, shouldUseMock } from '../../config/api.config';
 import { serverAPI as mockAPI } from '../../data/mockServer';
@@ -20,6 +21,7 @@ import { serverAPI as mockAPI } from '../../data/mockServer';
 import { bookingService } from './bookingService';
 import { seatService } from './seatService';
 import { venueService } from './venueService';
+import { Upload } from 'lucide-react';
 
 // Re-export services
 export { bookingService } from './bookingService';
@@ -164,6 +166,46 @@ const transformPerformanceData = (
     return transformed;
 };
 
+// performance data transform util function
+const transformAdminPerformanceData = (
+    response: AdminPerformanceResponse
+): Performance => {
+    const transformed: Performance = {
+        // 백엔드 응답 직접 매핑
+        performance_id: response.performanceResponse.performanceId,
+        title: response.performanceResponse.title,
+        venue: response.performanceResponse.venue,
+        venue_name: response.performanceResponse.venue,
+        theme: response.performanceResponse.theme,
+        description: response.performanceResponse.description || 'default text',
+        poster_url: response.performanceResponse.posterUrl,
+        price: response.performanceResponse.price,
+        base_price: response.performanceResponse.price,
+        status: response.performanceResponse.status,
+        start_date: response.performanceResponse.startDate,
+        end_date: response.performanceResponse.endDate,
+        running_time: response.performanceResponse.runningTime,
+        venue_address: response.performanceResponse.venueAddress,
+        venue_id: response.performanceResponse.venueId,
+
+
+        // 스케줄 변환
+        schedules: response.performanceResponse.schedules.map((schedule) => ({
+            schedule_id: schedule.scheduleId,
+            show_datetime: schedule.showDatetime,
+            available_seats: schedule.availableSeats,
+            total_seats: schedule.totalSeats,
+            status: schedule.status,
+        })),
+
+        total_bookings: response.totalBookings,
+        revenue: response.revenue,
+    };
+
+    return transformed;
+};
+
+
 // user data transform util function
 const transformUserData = (
     response: UserResponse
@@ -243,6 +285,7 @@ export const serverAPI = {
         }
     },
 
+
     async searchPerformances(searchParams: {
         name?: string;
         venue?: string;
@@ -319,10 +362,31 @@ export const serverAPI = {
         }
     },
 
+    async getAllAdminPerformances(): Promise<Performance[]> {
+
+        try {
+            const backendResponse = await apiClient.get<AdminPerformanceResponse[]>(
+                API_CONFIG.ENDPOINTS.ADMIN_PERFORMANCES
+            );
+
+            if (!backendResponse || !Array.isArray(backendResponse)) {
+                throw new Error('Invalid performances data received from backend');
+            }
+            console.log(backendResponse);
+            const transformedData = backendResponse.map(transformAdminPerformanceData);
+
+            console.log(transformedData);
+            return transformedData;
+        } catch (error) {
+            console.error('Failed to fetch admin performances:', error);
+            return [];
+        }
+    },
+
     async getUploadPresignedUrlResponse(image: File): Promise<PresignedUrlResponse> {
         try {
 
-            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/upload-url`;
+            const endpoint = `${API_CONFIG.ENDPOINTS.ADMIN_PERFORMANCES}/upload-url`;
             const response = await apiClient.post<PresignedUrlResponse>(endpoint, {
                 imageName: image.name,
                 imageType: image.type
@@ -338,30 +402,35 @@ export const serverAPI = {
         }
     },
 
+    async uploadImage(image: File | null): Promise<string> {
+        if (image !== null) {
+
+            const presignedUrlResponse = await this.getUploadPresignedUrlResponse(image);
+
+            const uploadResponse = await fetch(presignedUrlResponse.presignedUrl, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': image.type,
+                },
+                body: image
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error('파일 업로드 실패');
+            }
+            return presignedUrlResponse.imageKey;
+        }
+        return '';
+    },
 
     async createPerformance(performanceData: PerformanceRequest, image: File | null): Promise<Performance | undefined> {
         try {
-            if (image !== null) {
+            const posterKey = await this.uploadImage(image);
+            performanceData.posterUrl = posterKey;
 
-                const presignedUrlResponse = await this.getUploadPresignedUrlResponse(image);
+            const response = await apiClient.post<AdminPerformanceResponse>(API_CONFIG.ENDPOINTS.ADMIN_PERFORMANCES, performanceData);
 
-                const uploadResponse = await fetch(presignedUrlResponse.presignedUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': image.type,
-                    },
-                    body: image
-                });
-
-                if (!uploadResponse.ok) {
-                    throw new Error('파일 업로드 실패');
-                }
-                performanceData.posterUrl = presignedUrlResponse.imageKey;
-            }
-
-            const response = await apiClient.post<PerformanceResponse>(API_CONFIG.ENDPOINTS.PERFORMANCES, performanceData);
-
-            return transformPerformanceData(response);
+            return transformAdminPerformanceData(response);
         } catch (error) {
             console.error('Failed to create performance: ', error);
             return undefined;
@@ -370,28 +439,13 @@ export const serverAPI = {
 
     async updatePerformance(performanceId: number, performanceData: PerformanceRequest, image: File | null): Promise<Performance | undefined> {
         try {
-            if (image !== null) {
+            const posterKey = await this.uploadImage(image);
+            performanceData.posterUrl = posterKey;
 
-                const presignedUrlResponse = await this.getUploadPresignedUrlResponse(image);
+            const endpoint = `${API_CONFIG.ENDPOINTS.ADMIN_PERFORMANCES}/${performanceId}`
+            const response = await apiClient.put<AdminPerformanceResponse>(endpoint, performanceData);
 
-                const uploadResponse = await fetch(presignedUrlResponse.presignedUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': image.type,
-                    },
-                    body: image
-                });
-
-                if (!uploadResponse.ok) {
-                    throw new Error('파일 업로드 실패');
-                }
-                performanceData.posterUrl = presignedUrlResponse.imageKey;
-            }
-
-            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`
-            const response = await apiClient.put<PerformanceResponse>(endpoint, performanceData);
-
-            return transformPerformanceData(response);
+            return transformAdminPerformanceData(response);
         } catch (error) {
             console.error('Failed to update performance: ', error);
             return undefined;
@@ -400,7 +454,7 @@ export const serverAPI = {
 
     async deletePerformance(performanceId: number): Promise<boolean> {
         try {
-            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`
+            const endpoint = `${API_CONFIG.ENDPOINTS.ADMIN_PERFORMANCES}/${performanceId}`
             await apiClient.delete(endpoint);
 
             return true;

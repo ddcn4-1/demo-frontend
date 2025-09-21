@@ -190,7 +190,7 @@ export function PerformanceManagement() {
         setInitialLoading(true);
 
         const venueData = await serverAPI.getVenues();
-        const performanceData = await serverAPI.getPerformances();
+        const performanceData = await serverAPI.getAllAdminPerformances();
 
         setVenues(venueData);
         setPerformances(performanceData);

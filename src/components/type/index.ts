@@ -124,6 +124,12 @@ export interface PerformanceResponse {
   }>;
 }
 
+export interface AdminPerformanceResponse {
+  performanceResponse: PerformanceResponse
+  totalBookings: number;
+  revenue: number;
+}
+
 //   Performance DTOs
 //   export interface PerformanceResponse {
 //     performanceId: number;
