@@ -12,6 +12,7 @@ import {
     VenueResponse,
     PerformanceRequest,
     AdminBooking,
+    PresignedUrlResponse,
 } from '../type/index';
 import { API_CONFIG, shouldUseMock } from '../../config/api.config';
 import { serverAPI as mockAPI } from '../../data/mockServer';
@@ -318,8 +319,46 @@ export const serverAPI = {
         }
     },
 
-    async createPerformance(performanceData: PerformanceRequest): Promise<Performance | undefined> {
+    async getUploadPresignedUrlResponse(image: File): Promise<PresignedUrlResponse> {
         try {
+
+            const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/upload-url`;
+            const response = await apiClient.post<PresignedUrlResponse>(endpoint, {
+                imageName: image.name,
+                imageType: image.type
+            });
+
+            return response;
+        } catch (error) {
+            console.error(
+                `Failed to get PresignedUrl`,
+                error
+            );
+            throw error;
+        }
+    },
+
+
+    async createPerformance(performanceData: PerformanceRequest, image: File | null): Promise<Performance | undefined> {
+        try {
+            if (image !== null) {
+
+                const presignedUrlResponse = await this.getUploadPresignedUrlResponse(image);
+
+                const uploadResponse = await fetch(presignedUrlResponse.presignedUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': image.type,
+                    },
+                    body: image
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('파일 업로드 실패');
+                }
+                performanceData.posterUrl = presignedUrlResponse.imageKey;
+            }
+
             const response = await apiClient.post<PerformanceResponse>(API_CONFIG.ENDPOINTS.PERFORMANCES, performanceData);
 
             return transformPerformanceData(response);
@@ -329,12 +368,29 @@ export const serverAPI = {
         }
     },
 
-    async updatePerformance(performanceId: number, performanceData: PerformanceRequest): Promise<Performance | undefined> {
+    async updatePerformance(performanceId: number, performanceData: PerformanceRequest, image: File | null): Promise<Performance | undefined> {
         try {
+            if (image !== null) {
+
+                const presignedUrlResponse = await this.getUploadPresignedUrlResponse(image);
+
+                const uploadResponse = await fetch(presignedUrlResponse.presignedUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': image.type,
+                    },
+                    body: image
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('파일 업로드 실패');
+                }
+                performanceData.posterUrl = presignedUrlResponse.imageKey;
+            }
+
             const endpoint = `${API_CONFIG.ENDPOINTS.PERFORMANCES}/${performanceId}`
             const response = await apiClient.put<PerformanceResponse>(endpoint, performanceData);
 
-            console.log(response);
             return transformPerformanceData(response);
         } catch (error) {
             console.error('Failed to update performance: ', error);

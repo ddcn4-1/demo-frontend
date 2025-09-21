@@ -86,12 +86,11 @@ function PerformanceForm({
       </div>
 
       <div>
-        <Label htmlFor="poster_url">Poster URL</Label>
-        <Input
-          id="poster_url"
-          value={formData.poster_url}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, poster_url: e.target.value }))}
-          placeholder="https://example.com/poster.jpg"
+        <Label htmlFor="poster_url">Poster Image</Label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, poster_image: e.target.files?.[0] || null }))}
         />
       </div>
 
@@ -159,17 +158,30 @@ export function PerformanceManagement() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [editingPerformance, setEditingPerformance] = useState<Performance | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    theme: '',
-    poster_url: '',
-    start_date: '',
-    end_date: '',
-    running_time: 0,
-    base_price: 0,
-    venue_id: 0
-  });
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    theme: string;
+    poster_url: string;
+    poster_image: File | null;
+    start_date: string;
+    end_date: string;
+    running_time: number;
+    base_price: number;
+    venue_id: number;
+  }>
+    ({
+      title: '',
+      description: '',
+      theme: '',
+      poster_url: '',
+      poster_image: null,
+      start_date: '',
+      end_date: '',
+      running_time: 0,
+      base_price: 0,
+      venue_id: 0
+    });
 
   // 초기화
   useEffect(() => {
@@ -199,13 +211,13 @@ export function PerformanceManagement() {
         title: formData.title,
         description: formData.description,
         theme: formData.theme,
-        posterUrl: formData.poster_url,
+        posterUrl: '',
         basePrice: formData.base_price,
         startDate: formData.start_date,
         endDate: formData.end_date,
         runningTime: formData.running_time,
         status: "UPCOMING"
-      });
+      }, formData.poster_image);
 
       if (newPerformance !== undefined) {
         setPerformances(prev => [...prev, newPerformance]);
@@ -229,7 +241,7 @@ export function PerformanceManagement() {
         title: formData.title,
         description: formData.description || '',
         theme: formData.theme,
-        posterUrl: formData.poster_url,
+        posterUrl: '',
         basePrice: formData.base_price,
         startDate: formData.start_date,
         endDate: formData.end_date,
@@ -237,7 +249,7 @@ export function PerformanceManagement() {
         status: editingPerformance.status
       }
 
-      const updatedPerformance = await serverAPI.updatePerformance(editingPerformance.performance_id, updateRequestBody);
+      const updatedPerformance = await serverAPI.updatePerformance(editingPerformance.performance_id, updateRequestBody, formData.poster_image);
 
       if (updatedPerformance !== undefined) {
         setPerformances(prev => prev.map(perf =>
@@ -287,6 +299,7 @@ export function PerformanceManagement() {
       description: performance.description || '',
       theme: performance.theme,
       poster_url: performance.poster_url,
+      poster_image: null,
       start_date: performance.start_date,
       end_date: performance.end_date,
       running_time: performance.running_time,
@@ -301,6 +314,7 @@ export function PerformanceManagement() {
       description: '',
       theme: '',
       poster_url: '',
+      poster_image: null,
       start_date: '',
       end_date: '',
       running_time: 0,
