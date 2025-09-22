@@ -172,14 +172,19 @@ function ScheduleForm({
       <div className="grid grid-cols-2 gap-4">
 
         <div>
-          <Label htmlFor="venue">Performance</Label>
-          <Select onValueChange={(value: Performance) => setFormData((prev: any) => ({ ...prev, performance: value }))}>
+          <Label htmlFor="performance">Performance</Label>
+          <Select
+            value={formData.performance?.performance_id?.toString() || ''}
+            onValueChange={(value: string) => {
+              const selectPerformance = performances.find(p => p.performance_id === parseInt(value))
+              setFormData((prev: any) => ({ ...prev, performance: selectPerformance }))
+            }}>
             <SelectTrigger>
               <SelectValue placeholder="Select Performance" />
             </SelectTrigger>
             <SelectContent>
               {performances.map(performance => (
-                <SelectItem key={performance} value={performance}>
+                <SelectItem key={performance.performance_id} value={performance.performance_id.toString()}>
                   {performance.title}
                 </SelectItem>
               ))}
@@ -208,7 +213,7 @@ function ScheduleForm({
           <Input
             id="show_datetime"
             type="datetime-local"
-            value={formData.show_datetime}
+            value={formData.show_datetime || ''}
             onChange={(e) => setFormData((prev: any) => ({ ...prev, show_datetime: e.target.value }))}
           />
         </div>
@@ -457,6 +462,7 @@ export function PerformanceManagement() {
   const resetScheduleForm = () => {
     setScheduleFormData({
       performance: null,
+      show_datetime: '',
       status: '',
     });
   };
