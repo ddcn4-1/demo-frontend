@@ -3,6 +3,7 @@ import {
     Performance,
     PerformanceResponse,
     ScheduleResponse,
+    ScheduleStatus,
     Booking,
     BookingDto,
     Seat,
@@ -14,18 +15,27 @@ import {
     AdminBooking,
     PresignedUrlResponse,
     AdminPerformanceResponse,
+    AsgDashboardOverview,
+    AsgListResponse,
+    AsgDetails,
+    InstanceListResponse,
+    AsgCreateRequest,
+    AsgCreateResponse,
+    AsgCapacityRequest,
+    OperationResponse,
 } from '../type/index';
 import { API_CONFIG } from '../../config/api.config';
 
 import { bookingService } from './bookingService';
 import { seatService } from './seatService';
 import { venueService } from './venueService';
-import { Upload } from 'lucide-react';
+import { asgService } from './asgService';
 
 // Re-export services
 export { bookingService } from './bookingService';
 export { seatService } from './seatService';
 export { venueService } from './venueService';
+export { asgService } from './asgService';
 export { authService } from '../service/authService';
 
 // HTTP Client with error handling
@@ -161,7 +171,7 @@ const transformPerformanceData = (
             show_datetime: schedule.showDatetime,
             available_seats: schedule.availableSeats,
             total_seats: schedule.totalSeats,
-            status: schedule.status,
+            status: schedule.status as ScheduleStatus,
         })),
     };
 
@@ -197,7 +207,7 @@ const transformAdminPerformanceData = (
             show_datetime: schedule.showDatetime,
             available_seats: schedule.availableSeats,
             total_seats: schedule.totalSeats,
-            status: schedule.status,
+            status: schedule.status as ScheduleStatus,
         })),
 
         total_bookings: response.totalBookings,
@@ -648,6 +658,72 @@ export const serverAPI = {
             );
         } catch (error) {
             console.error('Failed to fetch system metrics:', error);
+            throw error;
+        }
+    },
+
+    async getAsgDashboardOverview(): Promise<AsgDashboardOverview> {
+        try {
+            return await asgService.getDashboardOverview();
+        } catch (error) {
+            console.error('Failed to fetch ASG dashboard overview:', error);
+            throw error;
+        }
+    },
+
+    async listAsgGroups(): Promise<AsgListResponse> {
+        try {
+            return await asgService.listAsgGroups();
+        } catch (error) {
+            console.error('Failed to fetch ASG groups:', error);
+            throw error;
+        }
+    },
+
+    async getAsgDetails(asgName: string): Promise<AsgDetails> {
+        try {
+            return await asgService.getAsgDetails(asgName);
+        } catch (error) {
+            console.error(`Failed to fetch ASG details for ${asgName}:`, error);
+            throw error;
+        }
+    },
+
+    async createAsg(payload: AsgCreateRequest): Promise<AsgCreateResponse> {
+        try {
+            return await asgService.createAsg(payload);
+        } catch (error) {
+            console.error('Failed to create ASG:', error);
+            throw error;
+        }
+    },
+
+    async deleteAsg(asgName: string): Promise<OperationResponse> {
+        try {
+            return await asgService.deleteAsg(asgName);
+        } catch (error) {
+            console.error(`Failed to delete ASG ${asgName}:`, error);
+            throw error;
+        }
+    },
+
+    async updateAsgCapacity(
+        asgName: string,
+        payload: AsgCapacityRequest
+    ): Promise<OperationResponse> {
+        try {
+            return await asgService.updateAsgCapacity(asgName, payload);
+        } catch (error) {
+            console.error(`Failed to update ASG capacity for ${asgName}:`, error);
+            throw error;
+        }
+    },
+
+    async getAsgInstances(asgName: string): Promise<InstanceListResponse> {
+        try {
+            return await asgService.getAsgInstances(asgName);
+        } catch (error) {
+            console.error(`Failed to fetch ASG instances for ${asgName}:`, error);
             throw error;
         }
     },

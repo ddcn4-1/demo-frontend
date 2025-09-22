@@ -5,6 +5,7 @@ import { PerformanceManagement } from './admin/PerformanceManagement';
 import { UserManagement } from './admin/UserManagement';
 import { BookingManagement } from './admin/BookingManagement';
 import { TrafficControl } from './admin/TrafficControl';
+import { AsgDashboard } from './admin/AsgDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardHeader, CardContent, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -64,7 +65,8 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
       { value: 'performances', label: 'Performances', condition: permissions.canManagePerformances },
       { value: 'bookings', label: 'Bookings', condition: permissions.canViewBookings },
       { value: 'users', label: 'Users', condition: permissions.canManageUsers },
-      { value: 'traffic', label: 'Traffic Control', condition: permissions.canControlTraffic }
+      { value: 'traffic', label: 'Traffic Control', condition: permissions.canControlTraffic },
+      { value: 'asg', label: 'ASG Dashboard', condition: permissions.canScaleInfrastructure }
     ];
 
     return tabs.filter(tab => tab.condition);
@@ -141,6 +143,12 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             {permissions.canControlTraffic && (
               <TabsContent value="traffic" className="space-y-4">
                 <TrafficControl permissions={permissions} />
+              </TabsContent>
+            )}
+
+            {permissions.canScaleInfrastructure && (
+              <TabsContent value="asg" className="space-y-4">
+                <AsgDashboard />
               </TabsContent>
             )}
           </Tabs>

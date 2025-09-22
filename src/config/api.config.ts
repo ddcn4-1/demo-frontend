@@ -13,8 +13,10 @@ export interface ApiConfig {
     SYSTEM: string;
     QUEUE: string;
     SEATS: string;
-
+    ASG: string;
+    ASG_OVERVIEW: string;
   };
+  MOCK_ENDPOINTS?: string[];
 }
 
 //todo: 개발 중 변경
@@ -34,6 +36,7 @@ const development: ApiConfig = {
     QUEUE: "/api/v1/queue",
     SEATS: "/api/v1",
   },
+  MOCK_ENDPOINTS: [],
 };
 
 const production: ApiConfig = {
@@ -52,6 +55,7 @@ const production: ApiConfig = {
     QUEUE: "/api/v1/queue",
     SEATS: "/api/v1",
   },
+  MOCK_ENDPOINTS: [],
 };
 
 // 현재 환경 감지
@@ -80,6 +84,26 @@ const getConfig = (): ApiConfig => {
 export const API_CONFIG = getConfig();
 
 // Mock 사용 여부를 확인하는 헬퍼 함수
+export const shouldUseMock = (
+  endpoint: keyof ApiConfig["ENDPOINTS"]
+): boolean => {
+  if (typeof window !== 'undefined') {
+    try {
+      const override = localStorage.getItem('forceMockMode');
+      if (override === 'true') {
+        return true;
+      }
+      if (override === 'false') {
+        return false;
+      }
+    } catch (error) {
+      console.warn('Unable to read forceMockMode from localStorage', error);
+    }
+  }
+
+  return API_CONFIG.MOCK_ENDPOINTS?.includes(endpoint) ?? false;
+};
+
 // 개발자 도구 (개발 환경에서만)
 if (process.env.NODE_ENV === 'development') {
   (window as any).apiDebug = {
