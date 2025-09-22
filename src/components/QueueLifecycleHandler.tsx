@@ -71,15 +71,11 @@ const QueueLifecycleHandler: React.FC<QueueLifecycleHandlerProps> = ({
         const handleUnload = async () => {
             if (selectedSchedule && (isActive || isWaiting)) {
                 isUnmountingRef.current = true;
-
-                // Beacon을 사용하여 세션 해제 시도
                 const beaconSent = queueService.sendSessionReleaseBeacon(
                     performance.performance_id,
                     selectedSchedule.schedule_id
                 );
-
                 if (!beaconSent) {
-                    // Beacon 실패 시 일반 API 호출
                     try {
                         await queueService.releaseSession(
                             performance.performance_id,
@@ -93,12 +89,14 @@ const QueueLifecycleHandler: React.FC<QueueLifecycleHandlerProps> = ({
             }
         };
 
-        // beforeunload 이벤트 등록
         window.addEventListener('beforeunload', handleUnload);
+        window.addEventListener('pagehide', handleUnload);   // iOS/Safari 대응
+        window.addEventListener('popstate', handleUnload);   // 브라우저 뒤로가기
 
         return () => {
             window.removeEventListener('beforeunload', handleUnload);
-            handleUnload(); // 컴포넌트 언마운트 시에도 실행
+            window.removeEventListener('pagehide', handleUnload);
+            window.removeEventListener('popstate', handleUnload);
         };
     }, [performance.performance_id, selectedSchedule, isActive, isWaiting]);
 
