@@ -86,12 +86,26 @@ function PerformanceForm({
       </div>
 
       <div>
-        <Label htmlFor="poster_url">Poster URL</Label>
-        <Input
-          id="poster_url"
-          value={formData.poster_url}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, poster_url: e.target.value }))}
-          placeholder="https://example.com/poster.jpg"
+        <Label htmlFor="poster_url">Poster Image</Label>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => document.getElementById('poster-file-input')?.click()}
+            className="w-fit"
+          >
+            Choose File
+          </Button>
+          <span className="text-sm text-gray-500">
+            {formData.poster_image?.name || 'No file selected'}
+          </span>
+        </div>
+        <input
+          id="poster-file-input"
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, poster_image: e.target.files?.[0] || null }))}
         />
       </div>
 
@@ -153,23 +167,127 @@ function PerformanceForm({
   );
 }
 
+function ScheduleForm({
+  formData,
+  setFormData,
+  performances,
+  onSubmit,
+  onCancel,
+  isEdit = false
+}: {
+  formData: any;
+  setFormData: (data: any) => void;
+  performances: Performance[];
+  onSubmit: () => void;
+  onCancel: () => void;
+  isEdit?: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+
+        <div>
+          <Label htmlFor="performance">Performance</Label>
+          <Select
+            value={formData.performance?.performance_id?.toString() || ''}
+            onValueChange={(value: string) => {
+              const selectPerformance = performances.find(p => p.performance_id === parseInt(value))
+              setFormData((prev: any) => ({ ...prev, performance: selectPerformance }))
+            }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Performance" />
+            </SelectTrigger>
+            <SelectContent>
+              {performances.map(performance => (
+                <SelectItem key={performance.performance_id} value={performance.performance_id.toString()}>
+                  {performance.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="status">Status</Label>
+          <Select value={formData.status} onValueChange={(value: any) => setFormData((prev: any) => ({ ...prev, status: value }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="OPEN">OPEN</SelectItem>
+              <SelectItem value="CLOSED">CLOSED</SelectItem>
+              <SelectItem value="SOLDOUT">SOLDOUT</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="show_datetime">Show Date time</Label>
+          <Input
+            id="show_datetime"
+            type="datetime-local"
+            value={formData.show_datetime || ''}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, show_datetime: e.target.value }))}
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4">
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button onClick={onSubmit}>
+          {isEdit ? 'Update' : 'Create'} Schedule
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function PerformanceManagement() {
   const [performances, setPerformances] = useState<Performance[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [editingPerformance, setEditingPerformance] = useState<Performance | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    theme: '',
-    poster_url: '',
-    start_date: '',
-    end_date: '',
-    running_time: 0,
-    base_price: 0,
-    venue_id: 0
-  });
+  const [showCreateScheduleDialog, setShowScheduleCreateDialog] = useState(false);
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    theme: string;
+    poster_url: string;
+    poster_image: File | null;
+    start_date: string;
+    end_date: string;
+    running_time: number;
+    base_price: number;
+    venue_id: number;
+  }>
+    ({
+      title: '',
+      description: '',
+      theme: '',
+      poster_url: '',
+      poster_image: null,
+      start_date: '',
+      end_date: '',
+      running_time: 0,
+      base_price: 0,
+      venue_id: 0
+    });
+
+  const [scheduleFormData, setScheduleFormData] = useState<{
+    performance: Performance;
+    show_datetime: string;
+    status: string;
+  }>
+    ({
+      performance: null,
+      show_datetime: '',
+      status: '',
+    });
 
   // 초기화
   useEffect(() => {
@@ -178,7 +296,7 @@ export function PerformanceManagement() {
         setInitialLoading(true);
 
         const venueData = await serverAPI.getVenues();
-        const performanceData = await serverAPI.getPerformances();
+        const performanceData = await serverAPI.getAllAdminPerformances();
 
         setVenues(venueData);
         setPerformances(performanceData);
@@ -199,13 +317,14 @@ export function PerformanceManagement() {
         title: formData.title,
         description: formData.description,
         theme: formData.theme,
-        posterUrl: formData.poster_url,
+        posterUrl: '',
         basePrice: formData.base_price,
         startDate: formData.start_date,
         endDate: formData.end_date,
         runningTime: formData.running_time,
-        status: "UPCOMING"
-      });
+        status: "UPCOMING",
+        schedules: []
+      }, formData.poster_image);
 
       if (newPerformance !== undefined) {
         setPerformances(prev => [...prev, newPerformance]);
@@ -229,15 +348,16 @@ export function PerformanceManagement() {
         title: formData.title,
         description: formData.description || '',
         theme: formData.theme,
-        posterUrl: formData.poster_url,
+        posterUrl: '',
         basePrice: formData.base_price,
         startDate: formData.start_date,
         endDate: formData.end_date,
         runningTime: formData.running_time,
-        status: editingPerformance.status
+        status: editingPerformance.status,
+        schedules: []
       }
 
-      const updatedPerformance = await serverAPI.updatePerformance(editingPerformance.performance_id, updateRequestBody);
+      const updatedPerformance = await serverAPI.updatePerformance(editingPerformance.performance_id, updateRequestBody, formData.poster_image);
 
       if (updatedPerformance !== undefined) {
         setPerformances(prev => prev.map(perf =>
@@ -287,6 +407,7 @@ export function PerformanceManagement() {
       description: performance.description || '',
       theme: performance.theme,
       poster_url: performance.poster_url,
+      poster_image: null,
       start_date: performance.start_date,
       end_date: performance.end_date,
       running_time: performance.running_time,
@@ -301,6 +422,7 @@ export function PerformanceManagement() {
       description: '',
       theme: '',
       poster_url: '',
+      poster_image: null,
       start_date: '',
       end_date: '',
       running_time: 0,
@@ -314,6 +436,58 @@ export function PerformanceManagement() {
     setEditingPerformance(null);
     resetForm();
   };
+
+  const handleCreateSchedule = async () => {
+    try {
+      const updateRequestBody: PerformanceRequest = {
+        venueId: scheduleFormData.performance.venue_id,
+        title: scheduleFormData.performance.title,
+        description: scheduleFormData.performance.description || '',
+        theme: scheduleFormData.performance.theme,
+        posterUrl: '',
+        basePrice: scheduleFormData.performance.base_price,
+        startDate: scheduleFormData.performance.start_date,
+        endDate: scheduleFormData.performance.end_date,
+        runningTime: scheduleFormData.performance.running_time,
+        status: scheduleFormData.performance.status,
+        schedules: [
+          {
+            showDatetime: scheduleFormData.show_datetime,
+            status: scheduleFormData.status,
+          }]
+      }
+
+      console.log(scheduleFormData);
+
+      const updatedPerformance = await serverAPI.updatePerformance(scheduleFormData.performance.performance_id, updateRequestBody, formData.poster_image);
+
+      if (updatedPerformance !== undefined) {
+        setShowScheduleCreateDialog(false);
+
+        resetScheduleForm();
+        console.log('스케줄 추가 성공');
+      } else {
+        throw new Error('스케줄 추가 실패');
+      }
+    } catch (error) {
+      console.error('스케줄 추가 실패: ', error);
+    }
+  };
+
+  const resetScheduleForm = () => {
+    setScheduleFormData({
+      performance: null,
+      show_datetime: '',
+      status: '',
+    });
+  };
+
+  const handleScheduleFormCancel = () => {
+    setShowScheduleCreateDialog(false);
+    // setScheduleEditingPerformance(null);
+    resetScheduleForm();
+  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -376,6 +550,26 @@ export function PerformanceManagement() {
               venues={venues}
               onSubmit={handleCreatePerformance}
               onCancel={handleFormCancel}
+            />
+          </DialogContent>
+        </Dialog>
+        <Dialog open={showCreateScheduleDialog} onOpenChange={setShowScheduleCreateDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Schedule
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Schedule</DialogTitle>
+            </DialogHeader>
+            <ScheduleForm
+              formData={scheduleFormData}
+              setFormData={setScheduleFormData}
+              performances={performances}
+              onSubmit={handleCreateSchedule}
+              onCancel={handleScheduleFormCancel}
             />
           </DialogContent>
         </Dialog>

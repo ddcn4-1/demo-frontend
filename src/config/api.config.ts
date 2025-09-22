@@ -6,6 +6,7 @@ export interface ApiConfig {
     ADMIN_AUTH: string;
     USERS: string;
     PERFORMANCES: string;
+    ADMIN_PERFORMANCES: string;
     BOOKINGS: string;
     ADMIN_BOOKINGS: string;
     VENUES: string;
@@ -25,6 +26,7 @@ const development: ApiConfig = {
     ADMIN_AUTH: "/admin/auth",
     USERS: "/v1/admin/users",
     PERFORMANCES: "/v1/performances",
+    ADMIN_PERFORMANCES: "/v1/admin/performances",
     ADMIN_BOOKINGS: "/v1/admin/bookings",
     BOOKINGS: "/api/bookings",
     VENUES: "/api/venues",
@@ -42,6 +44,7 @@ const production: ApiConfig = {
     ADMIN_AUTH: "/admin/auth",
     USERS: "/v1/admin/users",
     PERFORMANCES: "/v1/performances",
+    ADMIN_PERFORMANCES: "/v1/admin/performances",
     BOOKINGS: "/api/bookings",
     ADMIN_BOOKINGS: "/v1/admin/bookings",
     VENUES: "/api/venues",

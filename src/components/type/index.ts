@@ -89,13 +89,10 @@ export interface PerformanceRequest {
   | 'ONGOING'
   | 'ENDED'
   | 'CANCELLED';
-  // schedules: Array<{
-  //   schedule_id: number;
-  //   show_datetime: string;
-  //   available_seats: number;
-  //   total_seats: number;
-  //   status: string;
-  // }>;
+  schedules: Array<{
+    showDatetime: string;
+    status: string;
+  }>;
 }
 
 export interface PerformanceResponse {
@@ -123,6 +120,12 @@ export interface PerformanceResponse {
     totalSeats: number;
     status: string;
   }>;
+}
+
+export interface AdminPerformanceResponse {
+  performanceResponse: PerformanceResponse
+  totalBookings: number;
+  revenue: number;
 }
 
 //   Performance DTOs
@@ -278,6 +281,16 @@ export interface ScheduleResponse {
 
 export interface PerformanceSchedulesResponse {
   schedules: ScheduleResponse[];
+}
+
+export interface PresignedUrlRequest {
+  imageName: string;
+  imageType: string;
+}
+
+export interface PresignedUrlResponse {
+  presignedUrl: string;
+  imageKey: string;
 }
 
 // Booking DTOs
@@ -515,7 +528,7 @@ export interface VenueApiResponse {
 
 // Queue 관련 타입 정의
 export interface TokenIssueRequest {
-    performanceId: number;
+  performanceId: number;
 }
 
 export interface TokenActivateRequest {
@@ -526,57 +539,57 @@ export interface TokenActivateRequest {
 
 //todo.곧 삭제
 export interface TokenIssueResponse {
-    token: string;
-    status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
-    positionInQueue: number;
-    estimatedWaitTime: number;
-    message: string;
-    expiresAt: string;
-    bookingExpiresAt?: string;
+  token: string;
+  status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
+  positionInQueue: number;
+  estimatedWaitTime: number;
+  message: string;
+  expiresAt: string;
+  bookingExpiresAt?: string;
 }
 
 export interface QueueStatusResponse {
-    token: string;
-    status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
-    positionInQueue: number;
-    estimatedWaitTime: number;
-    isActiveForBooking: boolean;
-    bookingExpiresAt?: string;
-    performanceTitle?: string;
+  token: string;
+  status: 'WAITING' | 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
+  positionInQueue: number;
+  estimatedWaitTime: number;
+  isActiveForBooking: boolean;
+  bookingExpiresAt?: string;
+  performanceTitle?: string;
 }
 
 export interface QueueStatus {
-    queueId: string;
-    position: number;
-    totalInQueue: number;
-    estimatedWaitTime: number;
-    status: 'WAITING_FOR_CONNECTION' | 'ENTER_QUEUE' | 'WAITING' | 'AVAILABLE' | 'EXPIRED' | 'COMPLETED';
-    sessionEndTime?: Date;
+  queueId: string;
+  position: number;
+  totalInQueue: number;
+  estimatedWaitTime: number;
+  status: 'WAITING_FOR_CONNECTION' | 'ENTER_QUEUE' | 'WAITING' | 'AVAILABLE' | 'EXPIRED' | 'COMPLETED';
+  sessionEndTime?: Date;
 }
 
 // API Response 타입들
 export interface ApiResponseTokenIssue {
-    message?: string;
-    data: TokenIssueResponse;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
+  message?: string;
+  data: TokenIssueResponse;
+  success: boolean;
+  error?: string;
+  timestamp?: string;
 }
 
 export interface ApiResponseQueueStatus {
-    message?: string;
-    data: QueueStatusResponse;
-    success: boolean;
-    error?: string;
-    timestamp?: string;
+  message?: string;
+  data: QueueStatusResponse;
+  success: boolean;
+  error?: string;
+  timestamp?: string;
 }
 
 export interface ApiResponseQueueStatusList {
-    message?: string;
-    data: QueueStatusResponse[];
-    success: boolean;
-    error?: string;
-    timestamp?: string;
+  message?: string;
+  data: QueueStatusResponse[];
+  success: boolean;
+  error?: string;
+  timestamp?: string;
 }
 
 export interface QueueCheckRequest {
