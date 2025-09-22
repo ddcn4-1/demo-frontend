@@ -87,9 +87,24 @@ function PerformanceForm({
 
       <div>
         <Label htmlFor="poster_url">Poster Image</Label>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => document.getElementById('poster-file-input')?.click()}
+            className="w-fit"
+          >
+            Choose File
+          </Button>
+          <span className="text-sm text-gray-500">
+            {formData.poster_image?.name || 'No file selected'}
+          </span>
+        </div>
         <input
+          id="poster-file-input"
           type="file"
           accept="image/*"
+          className="hidden"
           onChange={(e) => setFormData((prev: any) => ({ ...prev, poster_image: e.target.files?.[0] || null }))}
         />
       </div>
