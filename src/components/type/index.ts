@@ -88,13 +88,10 @@ export interface PerformanceRequest {
   | 'ONGOING'
   | 'ENDED'
   | 'CANCELLED';
-  // schedules: Array<{
-  //   schedule_id: number;
-  //   show_datetime: string;
-  //   available_seats: number;
-  //   total_seats: number;
-  //   status: string;
-  // }>;
+  schedules: Array<{
+    showDatetime: string;
+    status: string;
+  }>;
 }
 
 export interface PerformanceResponse {
