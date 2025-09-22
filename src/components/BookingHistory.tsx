@@ -38,7 +38,7 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
   const [sortBy, setSortBy] = useState<
     'bookedDesc' | 'bookedAsc' | 'showAsc' | 'showDesc'
   >('bookedDesc');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'CONFIRMED' | 'CANCELLED'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'CONFIRMED' | 'CANCELLED'>('all');
   const [cancellingBooking, setCancellingBooking] = useState<BookingDto | null>(
     null
   );
@@ -51,21 +51,9 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
   const [viewingBookingDetails, setViewingBookingDetails] =
     useState<GetBookingDetail200ResponseDto | null>(null);
 
-  // Local override: Expires is 10 minutes from booking button click time
-  const [expiresOverrides, setExpiresOverrides] = useState<Record<string, string>>({});
   // Local seat codes captured at booking time
   const [localSeatCodesMap, setLocalSeatCodesMap] = useState<Record<string, string[]>>({});
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('bookingExpiresOverrides');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') setExpiresOverrides(parsed);
-      }
-    } catch (e) {
-      console.warn('Failed to load booking expiration overrides', e);
-      setExpiresOverrides({});
-    }
     try {
       const rawCodes = localStorage.getItem('bookingSeatCodes');
       if (rawCodes) {
@@ -169,8 +157,6 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
     switch (status) {
       case "CONFIRMED":
         return "default";
-      case "PENDING":
-        return "secondary";
       case "CANCELLED":
         return "destructive";
       default:
@@ -195,7 +181,7 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
   const canCancelBooking = (booking: BookingDto) => {
     // BookingDto에는 show_datetime이 없으므로 상태만으로 판단
     // 실제로는 스케줄 정보를 가져와서 시간을 확인해야 함
-    return booking.status === "CONFIRMED" || booking.status === "PENDING";
+    return booking.status === "CONFIRMED";
   };
 
   const getCancellationFee = (booking: BookingDto) => {
@@ -210,8 +196,6 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
         return "default";
       case "PROCESSING":
         return "secondary";
-      case "PENDING":
-        return "outline";
       default:
         return "outline";
     }
@@ -260,14 +244,13 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
         <div className="flex items-center gap-2 ml-auto">
           <Select
             value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as 'all' | 'PENDING' | 'CONFIRMED' | 'CANCELLED')}
+            onValueChange={(v) => setStatusFilter(v as 'all' | 'CONFIRMED' | 'CANCELLED')}
           >
             <SelectTrigger className="w-[160px]" aria-label="Filter status">
               <SelectValue placeholder="Filter status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
               <SelectItem value="CONFIRMED">Confirmed</SelectItem>
               <SelectItem value="CANCELLED">Cancelled</SelectItem>
             </SelectContent>
@@ -369,13 +352,18 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="w-4 h-4" />
                   <span>
-                    {booking.showDate
-                      ? `Scheduled: ${formatDate(booking.showDate)}`
-                      : booking.status === 'PENDING'
-                        ? `Expires: ${formatDate(expiresOverrides[booking.bookingNumber] || booking.expiresAt)}`
-                        : booking.status === 'CONFIRMED'
-                          ? `Booked: ${formatDate(booking.bookedAt)}`
-                          : `Booked: ${formatDate(booking.bookedAt)}`}
+                    {(() => {
+                      if (booking.status === 'CANCELLED') {
+                        const label = booking.cancelledAt
+                          ? formatDate(booking.cancelledAt)
+                          : 'Unknown';
+                        return `Cancelled: ${label}`;
+                      }
+                      if (booking.showDate) {
+                        return `Scheduled: ${formatDate(booking.showDate)}`;
+                      }
+                      return `Booked: ${formatDate(booking.bookedAt)}`;
+                    })()}
                   </span>
                 </div>
 
@@ -447,13 +435,6 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                     <span>Booked: {formatDate(booking.bookedAt)}</span>
                   </div>
                 )}
-
-                {booking.status === 'PENDING' && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="w-4 h-4" />
-                    <span>Expires: {formatDate(expiresOverrides[booking.bookingNumber] || booking.expiresAt)}</span>
-                  </div>
-                )}
               </div>
 
               {bookingDetails &&
@@ -471,16 +452,6 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                     </div>
                   </div>
                 )}
-
-              {booking.status === "PENDING" && (
-                <Alert>
-                  <AlertDescription>
-                    Payment is pending. Please complete payment to confirm your
-                    booking.
-                  </AlertDescription>
-                </Alert>
-              )}
-
               {booking.status === "CANCELLED" && (
                 <Alert>
                   <AlertTriangle className="w-4 h-4" />
@@ -855,17 +826,6 @@ export function BookingHistory({ userId }: BookingHistoryProps) {
                     </p>
                     <p className="font-medium">
                       {formatDate(viewingBooking.bookedAt)}
-                    </p>
-                  </div>
-                )}
-
-                {viewingBooking.status === 'PENDING' && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Expires At
-                    </p>
-                    <p className="font-medium">
-                      {formatDate(expiresOverrides[viewingBooking.bookingNumber] || viewingBooking.expiresAt)}
                     </p>
                   </div>
                 )}

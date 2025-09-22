@@ -8,7 +8,7 @@ import { TrafficControl } from './admin/TrafficControl';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardHeader, CardContent, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { User } from '../data/mockServer';
+import { User } from './type';
 
 interface AdminDashboardProps {
   user: User;

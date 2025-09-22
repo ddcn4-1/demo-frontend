@@ -16,9 +16,9 @@ import { SeatSelection } from './components/SeatSelection';
 import { Breadcrumb } from './components/Breadcrumb';
 import { Button } from './components/ui/button';
 import { LogOut } from 'lucide-react';
-import { User, Performance, PerformanceSchedule } from './data/mockServer';
+import { User, Performance, PerformanceSchedule } from './components/type';
 import { QueuePopup } from './components/QueuePopup';
-import {TestConcurrency} from "./components/TestConcurrency";
+// import {TestConcurrency} from "./components/TestConcurrency";
 
 
 
@@ -156,10 +156,10 @@ function PublicLayout({
                         }
                     />
                     {/* 🧪 테스트용 경로 추가 (여기에 추가!) */}
-                    <Route
+                    {/* <Route
                         path="/test-concurrency"
                         element={<TestConcurrency />}
-                    />
+                    /> */}
 
                     {/* Protected Routes */}
                     <Route

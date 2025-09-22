@@ -9,8 +9,8 @@ import {
 import { Progress } from './ui/progress';
 import { Button } from './ui/button';
 import { Users, Clock, Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import {queueService, QueueStatusResponse} from "./service/queueService";
-import {Performance, PerformanceSchedule} from "./type";
+import {queueService} from "./service/queueService";
+import {Performance, PerformanceSchedule, QueueStatusResponse} from "./type";
 import QueueLifecycleHandler from './QueueLifecycleHandler';
 
 export interface QueueStatus {
@@ -119,7 +119,8 @@ export function QueuePopup({
             setTimeout(() => {
                 onQueueComplete(performance, selectedSchedule);
                 cleanup();
-            }, 2000);
+            }, 500);  // 0.5초 대기
+
         } else if (queueStatus?.status === 'EXPIRED') {
             setIsActiveSession(false);
             // Queue expired
@@ -133,6 +134,7 @@ export function QueuePopup({
         }
     }, [queueStatus?.status, queueStatus?.isActiveForBooking]);
 
+
     // 대기 상태에서 10초 카운트다운 처리
     useEffect(() => {
         if (queueStatus?.status === 'WAITING') {
@@ -145,9 +147,12 @@ export function QueuePopup({
                     if (prev <= 1) {
                         clearInterval(countdownInterval);
                         console.log('Countdown finished, proceeding to booking');
-                        // 10초 후 자동으로 예매 창으로 이동
-                        onQueueComplete(performance, selectedSchedule);
-                        cleanup();
+
+                        handleTokenActivation().catch(error => {
+                            console.error('Token activation failed:', error);
+                            setError(error.message || '토큰 활성화에 실패했습니다.');
+                        });
+
                         return 0;
                     }
                     return prev - 1;
@@ -160,6 +165,65 @@ export function QueuePopup({
         }
     }, [queueStatus?.status]);
 
+    const handleTokenActivation = async () => {
+        if (!queueStatus?.token || !selectedSchedule) {
+            console.error('Missing token or schedule for activation');
+            setError('토큰 정보가 없습니다.');
+            return;
+        }
+
+        try {
+            setIsInitializing(true);
+            console.log('Activating token:', queueStatus.token);
+
+            const activateResponse = await queueService.activateToken(
+                queueStatus.token,
+                performance.performance_id,
+                selectedSchedule.schedule_id
+            );
+
+            if (activateResponse.success && activateResponse.data) {
+                console.log('Token activated successfully:', activateResponse.data);
+
+                if (activateResponse.data.status === 'ACTIVE' &&
+                    activateResponse.data.isActiveForBooking) {
+                    //  활성화 성공
+                    setQueueStatus(activateResponse.data);
+                    setIsActiveSession(true);
+
+                    setTimeout(() => {
+                        onQueueComplete(performance, selectedSchedule);
+                        cleanup();
+                    }, 1000);
+                }
+            } else {
+                throw new Error(activateResponse.error || '토큰 활성화 실패');
+            }
+        } catch (error: any) {
+            console.error('Token activation error:', error);
+
+            //  409 에러 처리 (자리가 가득 참)
+            if (error.response?.status === 409) {
+                console.log('Queue is full, retrying in 5 seconds...');
+                setError('현재 입장 가능한 인원이 가득 찼습니다. 잠시 후 다시 시도합니다...');
+
+                // 5초 후 재시도
+                setTimeout(() => {
+                    handleTokenActivation().catch(err => {
+                        console.error('Retry failed:', err);
+                    });
+                }, 5000);
+            } else if (error.response?.status === 410) {
+                // 토큰 만료
+                setError('토큰이 만료되었습니다.');
+                setQueueStatus(prev => prev ? { ...prev, status: 'EXPIRED' } : null);
+            } else {
+                setError(error.message || '토큰 활성화에 실패했습니다.');
+            }
+        } finally {
+            setIsInitializing(false);
+        }
+    };
 
     // cleanup 함수에 카운트다운 정리 추가
     const cleanup = () => {
@@ -183,7 +247,6 @@ export function QueuePopup({
         setIsActiveSession(false);
     };
 
-    // QueuePopup.tsx - initializeQueue 수정
     const initializeQueue = async () => {
         console.log('Queue initialization started:', {
             performanceId: performance.performance_id,
@@ -195,69 +258,79 @@ export function QueuePopup({
         setError(null);
 
         try {
-            if (selectedSchedule) {
-                console.log('Checking queue requirement...');
-
-                const checkResponse = await queueService.checkQueueRequirement(
-                    performance.performance_id,
-                    selectedSchedule.schedule_id
-                );
-
-                console.log('Queue check result:', {
-                    canProceedDirectly: checkResponse.data?.canProceedDirectly,
-                    requiresQueue: checkResponse.data?.requiresQueue,
-                    currentSessions: checkResponse.data?.currentActiveSessions,
-                    maxSessions: checkResponse.data?.maxConcurrentSessions
-                });
-
-                if (checkResponse.success && checkResponse.data.canProceedDirectly) {
-                    console.log('Direct access granted');
-                    setIsActiveSession(true);
-                    onQueueComplete(performance, selectedSchedule);
-                    cleanup();
-                    return;
-                }
+            if (!selectedSchedule) {
+                throw new Error('Schedule not selected');
             }
 
-            console.log('Issuing queue token...');
-            const response = await queueService.issueToken(performance.performance_id);
+            console.log('Requesting booking token...');
+
+            const checkResponse = await queueService.checkQueueRequirement(
+                performance.performance_id,
+                selectedSchedule.schedule_id
+            );
 
             console.log('Token response:', {
-                success: response.success,
-                tokenStatus: response.data?.status,
-                position: response.data?.positionInQueue,
-                waitTime: response.data?.estimatedWaitTime
+                success: checkResponse.success,
+                canProceedDirectly: checkResponse.data?.canProceedDirectly,
+                requiresQueue: checkResponse.data?.requiresQueue,
+                sessionId: checkResponse.data?.sessionId, // 토큰
+                currentSessions: checkResponse.data?.currentActiveSessions,
+                maxSessions: checkResponse.data?.maxConcurrentSessions
             });
 
-            if (response.success && response.data) {
-                // TokenIssueResponse를 QueueStatusResponse로 변환
-                const queueStatusResponse: QueueStatusResponse = {
-                    token: response.data.token,
-                    status: response.data.status,
-                    positionInQueue: response.data.positionInQueue,
-                    estimatedWaitTime: response.data.estimatedWaitTime,
-                    isActiveForBooking: response.data.status === 'ACTIVE',
-                    bookingExpiresAt: response.data.bookingExpiresAt,
-                    performanceTitle: performance.title
-                };
+            if (checkResponse.success && checkResponse.data) {
+                const token = checkResponse.data.sessionId; // 항상 토큰 받음
 
-                setQueueStatus(queueStatusResponse);
+                if (checkResponse.data.canProceedDirectly) {
+                    // Direct 입장 (ACTIVE 토큰)
+                    console.log('Direct access granted with ACTIVE token:', token);
 
-                // 상태에 따라 처리
-                if (response.data.status === 'ACTIVE') {
-                    console.log('Token immediately active');
+                    // 1) 상태를 ACTIVE로 명시 (타이머/라이프사이클 활성화)
+                    setQueueStatus({
+                        token,
+                        status: 'ACTIVE',
+                        positionInQueue: 0,
+                        estimatedWaitTime: 0,
+                        isActiveForBooking: true,
+                        bookingExpiresAt: null,
+                        performanceTitle: performance.title,
+                    });
+
+                    // 2) 라이프사이클 “활성” 표시
                     setIsActiveSession(true);
-                    setTimeout(() => {
-                        onQueueComplete(performance, selectedSchedule);
-                        cleanup();
-                    }, 1000);
-                } else if (response.data.status === 'WAITING') {
-                    console.log('Token in waiting state, starting polling...');
-                    // 폴링 시작
-                    startPolling(response.data.token);
+                    // 즉시 좌석 선택으로 이동
+
+                    // 3) 즉시 하트비트 한 번 전송 (좌석 화면이 이어받기 전 공백 방지)
+                    await queueService.updateHeartbeat(
+                        performance.performance_id,
+                        selectedSchedule.schedule_id
+                    );
+
+                    // 4) 좌석 화면으로 이동하되, 여기서는 cleanup() 호출하지 않기
+                    onQueueComplete(performance, selectedSchedule);
+
+                } else if (checkResponse.data.requiresQueue) {
+                    // 대기열 진입 (WAITING 토큰)
+                    console.log('Entering queue with WAITING token:', token);
+
+                    // QueueStatusResponse 생성 (타입 변환)
+                    const queueStatusResponse: QueueStatusResponse = {
+                        token: token,
+                        status: 'WAITING', // 백엔드에서 WAITING 토큰 발급됨
+                        positionInQueue: checkResponse.data.currentWaitingCount || 1,
+                        estimatedWaitTime: checkResponse.data.estimatedWaitTime || 0,
+                        isActiveForBooking: false,
+                        bookingExpiresAt: null,
+                        performanceTitle: performance.title
+                    };
+
+                    setQueueStatus(queueStatusResponse);
+
+                    // 대기열 상태 폴링 시작
+                    startPolling(token);
                 }
             } else {
-                throw new Error(response.error || 'Failed to issue token');
+                throw new Error(checkResponse.error || 'Failed to get booking token');
             }
         } catch (error: any) {
             console.error('Failed to initialize queue:', error);
@@ -280,8 +353,14 @@ export function QueuePopup({
             setError(errorMessage);
         };
 
-        // 향상된 폴링 사용 (재시도 기능 포함) 3000ms 간격
-        queueService.pollQueueStatusWithRetry(token, onStatusUpdate, onPollingError, 3000)
+
+        // 폴링 사용 (재시도 기능 포함) 1000ms 간격
+        queueService
+            .pollQueueStatusWithRetry(token, onStatusUpdate, onPollingError, {
+                pollInterval: 1000,
+                performanceId: performance.performance_id,
+                scheduleId: selectedSchedule?.schedule_id,
+            })
             .then(stopFunction => {
                 stopPollingRef.current = stopFunction;
             })
@@ -341,17 +420,19 @@ export function QueuePopup({
             case 'WAITING':
                 const position = queueStatus.positionInQueue ?? 1;
                 if (waitingCountdown > 0) {
-                    return `대기열 처리 중... ${waitingCountdown}초 후 예매 화면으로 이동합니다.`;
+                    return `대기열 처리 중... ${waitingCountdown}초 후 입장 시도합니다.`;
                 }
-                return `${position} ${position === 1 ? 'person' : 'people'} ahead of you`;
+                if (error?.includes('가득 찼습니다')) {
+                    // 재시도 중 표시
+                    return '입장 가능한 자리를 찾는 중입니다...';
+                }
+                return `${position}번째로 대기 중입니다`;
             case 'ACTIVE':
-                return '이제 자리를 선택할 수 있습니다.';
+                return '이제 좌석을 선택할 수 있습니다!';
             case 'EXPIRED':
                 return 'Your queue session has expired. 다시 시도해주세요';
-            case 'CANCELLED':
-                return 'Queue session 취소되었습니다.';
             default:
-                return '큐 연결 중 ...';
+                return '대기열 연결 중...';
         }
     };
 

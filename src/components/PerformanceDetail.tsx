@@ -13,7 +13,6 @@ import {
     Ticket,
 } from 'lucide-react';
 import { Performance, PerformanceSchedule } from './type/index';
-import { QueuePopup } from './QueuePopup';
 
 interface PerformanceDetailProps {
     performance: Performance;
@@ -31,9 +30,6 @@ export function PerformanceDetail({
 }: PerformanceDetailProps) {
     const [selectedSchedule, setSelectedSchedule] =
         useState<PerformanceSchedule | null>(null);
-
-    const [showQueuePopup, setShowQueuePopup] = useState(false);
-    const [queueSchedule, setQueueSchedule] = useState<PerformanceSchedule | undefined>(undefined);
 
     const totalSeats = performance.schedules?.reduce(
         (sum, schedule) => sum + (schedule.total_seats || 0),
@@ -112,31 +108,18 @@ export function PerformanceDetail({
         return statusLabels[status?.toUpperCase()] || status || 'Unknown';
     };
 
-    // 대기열 관련 핸들러 추가
     const handleBookingClick = () => {
-        if (selectedSchedule) {
-            console.log('Starting queue process for performance:', performance.performance_id, 'schedule:', selectedSchedule.schedule_id);
-            setQueueSchedule(selectedSchedule);
-            setShowQueuePopup(true);
+        if (!selectedSchedule) {
+            return;
         }
-    };
 
-    const handleQueueComplete = (perf: Performance, schedule?: PerformanceSchedule) => {
-        console.log('Queue completed, proceeding to seat selection');
-        setShowQueuePopup(false);
-        onBookNow(perf, schedule);
-    };
-
-    const handleQueueExpired = () => {
-        console.log('Queue expired');
-        setShowQueuePopup(false);
-        // 필요시 사용자에게 알림 표시
-        alert('대기열 세션이 만료되었습니다. 다시 시도해주세요.');
-    };
-
-    const handleQueueClose = () => {
-        console.log('Queue popup closed');
-        setShowQueuePopup(false);
+        console.log(
+            'Starting global queue process for performance:',
+            performance.performance_id,
+            'schedule:',
+            selectedSchedule.schedule_id
+        );
+        onBookNow(performance, selectedSchedule);
     };
 
     console.log('PerformanceDetail - Received performance data:', performance);
@@ -698,15 +681,6 @@ export function PerformanceDetail({
                 </div>
             </div>
 
-            {/* 대기열 팝업 추가 */}
-            <QueuePopup
-                isOpen={showQueuePopup}
-                performance={performance}
-                selectedSchedule={queueSchedule}
-                onClose={handleQueueClose}
-                onQueueComplete={handleQueueComplete}
-                onQueueExpired={handleQueueExpired}
-            />
         </div>
     );
 }
