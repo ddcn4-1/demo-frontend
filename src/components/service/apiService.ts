@@ -74,11 +74,39 @@ class ApiClient {
                     localStorage.removeItem('authToken');
                     localStorage.removeItem('currentUser');
                     window.location.href = '/login';
-                    throw new Error('Unauthorized');
+                    const unauthorizedError: any = new Error('Unauthorized');
+                    unauthorizedError.response = {
+                        status: response.status,
+                        statusText: response.statusText,
+                    };
+                    throw unauthorizedError;
                 }
-                throw new Error(
+                let errorPayload: unknown = null;
+                try {
+                    const rawBody = await response.text();
+                    if (rawBody) {
+                        try {
+                            errorPayload = JSON.parse(rawBody);
+                        } catch {
+                            errorPayload = rawBody;
+                        }
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse error response body:', parseError);
+                }
+
+                const httpError: any = new Error(
                     `HTTP ${response.status}: ${response.statusText}`
                 );
+                httpError.status = response.status;
+                httpError.statusText = response.statusText;
+                httpError.response = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: errorPayload,
+                };
+                httpError.data = errorPayload;
+                throw httpError;
             }
 
             if (response.status === 204) {
