@@ -202,6 +202,117 @@ export interface SystemMetrics {
   uptime: string;
 }
 
+export type ServerGroup =
+    | 'web-server'
+    | 'api-server'
+    | 'auth-service'
+    | 'payment-service'
+    | 'notification-service'
+    | 'user-service'
+    | 'database'
+    | 'cache'
+    | 'message-queue'
+    | 'monitoring'
+    | 'logging';
+
+export interface AsgSummary {
+  name: string;
+  environment: string;
+  serverGroup: ServerGroup;
+  status: 'healthy' | 'warning' | 'critical';
+  instanceCount: number;
+}
+
+export interface AsgDashboardOverview {
+  summary: {
+    totalAsgCount: number;
+    totalInstances: number;
+    healthyInstances: number;
+  };
+  asgGroups: AsgSummary[];
+}
+
+export type AsgLifecycleStatus = 'InService' | 'Updating' | 'Deleting';
+
+export interface AsgInfo {
+  autoScalingGroupName: string;
+  desiredCapacity: number;
+  minSize: number;
+  maxSize: number;
+  instanceCount: number;
+  healthyInstances: number;
+  status: AsgLifecycleStatus;
+  createdTime: string;
+  serverGroup: ServerGroup;
+  environment: string;
+}
+
+export interface AsgListResponse {
+  autoScalingGroups: AsgInfo[];
+}
+
+export interface AsgDetails extends AsgInfo {
+  subnetIds?: string[];
+  availabilityZones?: string[];
+  launchTemplate?: {
+    id: string;
+    version: string;
+  };
+}
+
+export interface InstanceInfo {
+  instanceId: string;
+  lifecycleState:
+    | 'Pending'
+    | 'InService'
+    | 'Terminating'
+    | 'Terminated'
+    | 'Detaching'
+    | 'Detached'
+    | 'EnteringStandby'
+    | 'Standby';
+  healthStatus: 'Healthy' | 'Unhealthy';
+  availabilityZone: string;
+  launchTime: string;
+}
+
+export interface InstanceListResponse {
+  instances: InstanceInfo[];
+}
+
+export interface AsgCreateRequest {
+  serverGroup: ServerGroup;
+  environment: string;
+  desiredCapacity: number;
+  minSize: number;
+  maxSize: number;
+  subnetIds: string[];
+  keyName?: string;
+}
+
+export interface AsgCreateResponse {
+  asgName: string;
+  status: string;
+}
+
+export interface AsgCapacityRequest {
+  desired?: number;
+  min?: number;
+  max?: number;
+}
+
+export interface OperationResponse {
+  status: 'success' | 'pending' | 'failed';
+  message: string;
+}
+
+export interface ErrorResponse {
+  error: string;
+  message: string;
+  timestamp: string;
+  details?: Record<string, unknown>;
+}
+
 // Common Response Types
 export interface ApiResponse<T> {
   message?: string;
