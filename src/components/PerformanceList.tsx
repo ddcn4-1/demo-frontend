@@ -64,12 +64,13 @@ export function PerformanceList({
                         : searchParams?.status || '',
             });
 
-            // Convert the Performance interface to the expected format for this component
-            const formattedPerformances = performanceData.map((perf) => ({
+            // Convert the PerformanceResponse to Performance interface format
+            const formattedPerformances: Performance[] = performanceData.map((perf) => ({
                 performance_id: perf.performanceId,
                 title: perf.title,
                 venue: perf.venue,
                 venue_name: perf.venue,
+                venue_id: perf.venueId || 0,
                 theme: perf.theme,
                 poster_url: perf.posterUrl,
                 price: perf.price,
@@ -79,13 +80,13 @@ export function PerformanceList({
                 end_date: perf.endDate,
                 running_time: perf.runningTime,
                 venue_address: perf.venueAddress,
-                description: perf.description, // description이 없으므로 theme으로 대체
-                schedules: (perf.schedules || []).map((schedule, index) => ({
+                description: perf.description || perf.theme,
+                schedules: (perf.schedules || []).map((schedule) => ({
                     schedule_id: schedule.scheduleId,
                     show_datetime: schedule.showDatetime,
                     available_seats: schedule.availableSeats,
-                    total_seats: schedule.totalSeats || 0, // null인 경우 0으로 처리
-                    status: schedule.status,
+                    total_seats: schedule.totalSeats || 0,
+                    status: schedule.status as ScheduleStatus,
                 })),
             }));
             setPerformances(formattedPerformances);
@@ -514,13 +515,17 @@ export function PerformanceList({
                                 className="w-full"
                                 onClick={() => onSelectPerformance(performance)}
                                 disabled={performance.schedules.every(
-                                    (s) => s.status === 'SOLDOUT'
+                                    (s) => s.status === 'SOLDOUT' || s.status === 'CLOSED'
                                 )}
                             >
                                 {performance.schedules.every(
                                     (s) => s.status === 'SOLDOUT'
                                 )
                                     ? 'Sold Out'
+                                    : performance.schedules.every(
+                                        (s) => s.status === 'CLOSED'
+                                    )
+                                    ? 'Not Available'
                                     : 'Book Now'}
                             </Button>
                         </CardContent>
