@@ -41,12 +41,12 @@ class AuthService {
     // 나머지 메서드들은 동일...
     async login(credentials: LoginRequest): Promise<EnhancedAuthResponse | null> {
         try {
-            const userResponse = await this.attemptLogin('/auth/login', credentials);
+            const userResponse = await this.attemptLogin('/v1/auth/login', credentials);
             if (userResponse) {
                 return userResponse;
             }
 
-            const adminResponse = await this.attemptLogin('/admin/auth/login', credentials);
+            const adminResponse = await this.attemptLogin('/v1/admin/auth/login', credentials);
             return adminResponse;
 
         } catch (error) {
@@ -83,7 +83,7 @@ class AuthService {
 
     async logout(userRole: 'USER' | 'ADMIN'): Promise<LogoutResponse> {
         const token = localStorage.getItem('authToken');
-        const endpoint = userRole === 'ADMIN' ? '/admin/auth/logout' : '/auth/logout';
+        const endpoint = userRole === 'ADMIN' ? '/v1/admin/auth/logout' : '/v1/auth/logout';
 
         try {
             const response = await fetch(`${this.baseURL}${endpoint}`, {

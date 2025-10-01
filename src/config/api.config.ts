@@ -10,31 +10,28 @@ export interface ApiConfig {
         BOOKINGS: string;
         ADMIN_BOOKINGS: string;
         VENUES: string;
-        SYSTEM: string;
         QUEUE: string;
         SEATS: string;
-        ASG: string;
-        ASG_OVERVIEW: string;
+        ASG?: string;
+        ASG_OVERVIEW?: string;
     };
     MOCK_ENDPOINTS?: string[];
 }
 
-//todo: 개발 중 변경
 const development: ApiConfig = {
     BASE_URL: 'http://localhost:8080',
     TIMEOUT: 10000,
     ENDPOINTS: {
-        AUTH: '/auth',
-        ADMIN_AUTH: '/admin/auth',
+        AUTH: '/v1/auth',
+        ADMIN_AUTH: '/v1/admin/auth',
         USERS: '/v1/admin/users',
         PERFORMANCES: '/v1/performances',
         ADMIN_PERFORMANCES: '/v1/admin/performances',
         ADMIN_BOOKINGS: '/v1/admin/bookings',
-        BOOKINGS: '/api/bookings',
-        VENUES: '/api/venues',
-        SYSTEM: '/api/system',
-        QUEUE: '/api/v1/queue',
-        SEATS: '/api/v1',
+        BOOKINGS: '/v1/bookings',
+        VENUES: '/v1/venues',
+        QUEUE: '/v1/queue',
+        SEATS: '/v1/seats',
     },
     MOCK_ENDPOINTS: [],
 };
@@ -43,17 +40,16 @@ const production: ApiConfig = {
     BASE_URL: 'https://api.ddcn41.com',
     TIMEOUT: 10000,
     ENDPOINTS: {
-        AUTH: '/auth',
-        ADMIN_AUTH: '/admin/auth',
+        AUTH: '/v1/auth',
+        ADMIN_AUTH: '/v1/admin/auth',
         USERS: '/v1/admin/users',
         PERFORMANCES: '/v1/performances',
         ADMIN_PERFORMANCES: '/v1/admin/performances',
         ADMIN_BOOKINGS: '/v1/admin/bookings',
-        BOOKINGS: '/api/bookings',
-        VENUES: '/api/venues',
-        SYSTEM: '/api/system',
-        QUEUE: '/api/v1/queue',
-        SEATS: '/api/v1',
+        BOOKINGS: '/v1/bookings',
+        VENUES: '/v1/venues',
+        QUEUE: '/v1/queue',
+        SEATS: '/v1/seats',
     },
     MOCK_ENDPOINTS: [],
 };
@@ -106,9 +102,8 @@ export const shouldUseMock = (
 
     return API_CONFIG.MOCK_ENDPOINTS?.includes(endpoint) ?? false;
 };
-
 // 개발자 도구 (개발 환경에서만)
-if (process.env.NODE_ENV === 'development') {
+if (getCurrentEnvironment() === 'development') {
     (window as any).apiDebug = {
         showConfig: () => console.table(API_CONFIG),
     };
