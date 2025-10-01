@@ -83,7 +83,7 @@ class AuthService {
 
     async logout(userRole: 'USER' | 'ADMIN'): Promise<LogoutResponse> {
         const token = localStorage.getItem('authToken');
-        const endpoint = userRole === 'ADMIN' ? '/admin/auth/logout' : '/auth/logout';
+        const endpoint = userRole === 'ADMIN' ? '/v1/admin/auth/logout' : '/v1/auth/logout';
 
         try {
             const response = await fetch(`${this.baseURL}${endpoint}`, {

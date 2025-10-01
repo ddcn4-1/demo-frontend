@@ -3,6 +3,7 @@ export interface ApiConfig {
     TIMEOUT: number;
     ENDPOINTS: {
         AUTH: string;
+        ADMIN_AUTH: string;
         USERS: string;
         PERFORMANCES: string;
         ADMIN_PERFORMANCES: string;
@@ -22,6 +23,7 @@ const development: ApiConfig = {
     TIMEOUT: 10000,
     ENDPOINTS: {
         AUTH: '/v1/auth',
+        ADMIN_AUTH: '/v1/admin/auth',
         USERS: '/v1/admin/users',
         PERFORMANCES: '/v1/performances',
         ADMIN_PERFORMANCES: '/v1/admin/performances',
@@ -39,6 +41,7 @@ const production: ApiConfig = {
     TIMEOUT: 10000,
     ENDPOINTS: {
         AUTH: '/v1/auth',
+        ADMIN_AUTH: '/v1/admin/auth',
         USERS: '/v1/admin/users',
         PERFORMANCES: '/v1/performances',
         ADMIN_PERFORMANCES: '/v1/admin/performances',

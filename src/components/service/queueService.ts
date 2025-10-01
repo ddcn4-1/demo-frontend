@@ -28,7 +28,7 @@ class QueueService {
 
         try {
             const response = await apiClient.post<ApiResponseQueueCheck>(
-                '/api/v1/queue/check',
+                '/v1/queue/check',
                 requestData
             );
 
@@ -49,7 +49,7 @@ class QueueService {
         const requestData: TokenIssueRequest = { performanceId };
 
         return apiClient.post<ApiResponseTokenIssue>(
-            '/api/v1/queue/token',
+            '/v1/queue/token',
             requestData
         );
     }
@@ -61,7 +61,7 @@ class QueueService {
         console.log('Queue Service - Getting token status:', token);
 
         return apiClient.get<ApiResponseQueueStatus>(
-            `/api/v1/queue/status/${token}`
+            `/v1/queue/status/${token}`
         );
     }
 
@@ -72,7 +72,7 @@ class QueueService {
         console.log('Queue Service - Getting my tokens');
 
         return apiClient.get<ApiResponseQueueStatusList>(
-            '/api/v1/queue/my-tokens'
+            '/v1/queue/my-tokens'
         );
     }
 
@@ -83,7 +83,7 @@ class QueueService {
         console.log('Queue Service - Canceling token:', token);
 
         return apiClient.delete<ApiResponseString>(
-            `/api/v1/queue/token/${token}`
+            `/v1/queue/token/${token}`
         );
     }
 
@@ -104,7 +104,7 @@ class QueueService {
         };
 
         return apiClient.post<ApiResponseQueueStatus>(
-            '/api/v1/queue/activate',
+            '/v1/queue/activate',
             requestData
         );
     }
@@ -121,7 +121,7 @@ class QueueService {
 
         try {
             const response = await apiClient.post<ApiResponseString>(
-                '/api/v1/queue/heartbeat',
+                '/v1/queue/heartbeat',
                 requestData
             );
 
@@ -174,7 +174,7 @@ class QueueService {
         };
 
         return apiClient.post<ApiResponseString>(
-            '/api/v1/queue/release-session',
+            '/v1/queue/release-session',
             requestData
         );
     }
@@ -184,7 +184,7 @@ class QueueService {
      */
     async clearSessions(): Promise<{ success: boolean; message: string }> {
         try {
-            const response = await apiClient.post('/api/v1/queue/clear-sessions');
+            const response = await apiClient.post('/v1/queue/clear-sessions');
             return response;
         } catch (error: any) {
             console.error('Clear sessions failed:', error);
