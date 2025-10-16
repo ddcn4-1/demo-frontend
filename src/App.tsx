@@ -389,14 +389,12 @@ function AppContent() {
 
     const handleLogin = (userData: User) => {
         setUser(userData);
-        localStorage.setItem('currentUser', JSON.stringify(userData));
+        // localStorage.setItem 제거 - LoginForm에서 저장됨
 
-        // Navigate to intended destination or appropriate dashboard
+        // Navigate to intended destination
         const intendedDestination = location.state?.from?.pathname;
         if (intendedDestination && intendedDestination !== '/login') {
-            navigate(
-                intendedDestination + (location.state?.from?.search || '')
-            );
+            navigate(intendedDestination + (location.state?.from?.search || ''));
         } else {
             navigate(userData.role === 'USER' ? '/dashboard' : '/admin');
         }

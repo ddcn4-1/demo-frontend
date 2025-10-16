@@ -28,19 +28,20 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             });
 
             if (response && response.accessToken) {
+                console.log('로그인 응답:', response);
+
                 authService.saveAuthData(response);
+
+                // 저장 확인
+                console.log('저장된 토큰:', localStorage.getItem('authToken'));
+                console.log('저장된 유저:', localStorage.getItem('currentUser'));
 
                 const user = {
                     user_id: response.user.userId,
-                    email: response.user.email,
-                    username: response.user.username,
-                    name: response.user.name,
-                    role: response.user.role,
-                    created_at: new Date().toISOString(),
-                    last_login: response.user.lastLogin
+                    // ...
                 };
 
-                console.log('로그인 성공:', response);
+                console.log('onLogin 호출:', user);
                 onLogin(user);
             } else {
                 setError('로그인에 실패했습니다. 아이디와 비밀번호를 확인해주세요.');

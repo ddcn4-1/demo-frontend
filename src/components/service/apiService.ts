@@ -41,18 +41,31 @@ export { authService } from '../service/authService';
 // HTTP Client with error handling
 class ApiClient {
     private baseURL: string;
+    private queueBaseURL: string;
     private timeout: number;
 
     constructor(baseURL: string, timeout: number = 10000) {
         this.baseURL = baseURL;
+        this.queueBaseURL = API_CONFIG.QUEUE_URL;
         this.timeout = timeout;
+    }
+
+    private getBaseURL(endpoint: string): string {
+        // /v1/queue로 시작하면 Queue 서비스 URL 사용
+        if (endpoint.startsWith('/v1/queue')) {
+            return this.queueBaseURL;
+        }
+        // 그 외에는 API 서비스 URL 사용
+        return this.baseURL;
     }
 
     private async request<T>(
         endpoint: string,
         options: RequestInit = {}
     ): Promise<T> {
-        const url = `${this.baseURL}${endpoint}`;
+        // const url = `${this.baseURL}${endpoint}`;
+        const url = `${this.getBaseURL(endpoint)}${endpoint}`;  // 변경
+
         const token = localStorage.getItem('authToken');
 
         const config: RequestInit = {

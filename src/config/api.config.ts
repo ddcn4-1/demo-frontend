@@ -1,5 +1,6 @@
 export interface ApiConfig {
     BASE_URL: string;
+    QUEUE_URL: string;  // 👈 추가
     TIMEOUT: number;
     ENDPOINTS: {
         AUTH: string;
@@ -19,7 +20,8 @@ export interface ApiConfig {
 }
 
 const development: ApiConfig = {
-    BASE_URL: 'http://localhost:8080',
+    BASE_URL: 'http://localhost:8080/api',
+    QUEUE_URL: 'http://localhost:8080/queue',
     TIMEOUT: 10000,
     ENDPOINTS: {
         AUTH: '/v1/auth',
@@ -38,6 +40,7 @@ const development: ApiConfig = {
 
 const production: ApiConfig = {
     BASE_URL: 'https://api.ddcn41.com',
+    QUEUE_URL: 'https://api.ddcn41.com/queue',  // 👈 추가
     TIMEOUT: 10000,
     ENDPOINTS: {
         AUTH: '/v1/auth',

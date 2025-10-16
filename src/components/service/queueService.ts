@@ -232,7 +232,7 @@ class QueueService {
         });
 
         // API_CONFIG를 사용하여 동적 URL 구성
-        const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.QUEUE}/release-session`;
+        const url = `${API_CONFIG.QUEUE_URL}${API_CONFIG.ENDPOINTS.QUEUE}/release-session`;
 
         try {
             const success = navigator.sendBeacon(url, data);
